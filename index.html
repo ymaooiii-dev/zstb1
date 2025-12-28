@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>纸上江湖 - 长安二十四计 x 莲花楼</title>
     
     <!-- 1. 引入 Tailwind CSS -->
@@ -12,7 +12,10 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: #2a231d; touch-action: manipulation; }
+        /* 使用 100dvh 适配移动端动态地址栏 */
+        body { margin: 0; overflow: hidden; background-color: #2a231d; touch-action: manipulation; height: 100dvh; }
+        #root { height: 100%; }
+        
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3cd; border-radius: 2px; }
@@ -175,7 +178,7 @@
           player: {
             attack: ["此局已定。", "你输了。", "去去重去去，来来来来来。", "这招如何？", "铁锹...是用来埋你的。", "今日宜解签，大吉。"],
             hit: ["咳咳...无妨。", "这点代价...值得。", "碧茶之毒又犯了...", "还在计算之中。", "哎哟，轻点！"],
-            win: ["清理干净。", "下一个。", "还得回去给狐狸精喂饭。", "不过是弃子。", "承让。"]
+            win: ["清理干净。", "下一个。", "长安的雪，又红了几分。", "不过是弃子。", "承让。"]
           },
           enemy: {
             intro: ["受死吧！"],
@@ -197,6 +200,7 @@
             <svg viewBox="0 0 100 150" className={`w-full h-full drop-shadow-md overflow-visible transition-transform duration-500 ${isSleeping ? 'rotate-90 translate-y-10' : ''}`}>
               <g stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
                 {isEnemy ? (
+                  // --- 敌人外观 ---
                   <>
                      {charVisual === '青衣' || charVisual === '角丽谯' ? (
                         <g stroke="none">
@@ -219,10 +223,11 @@
                   </>
                 ) : (
                   <g stroke="none">
+                    {/* 伙伴与玩家形象 */}
                     {charVisual === 'ye_zheng' ? (
                       <g>
                          <path d="M30 45 L70 45 L75 120 L25 120 Z" fill="#18181b" stroke="#52525b" strokeWidth="1.5" /> 
-                         <path d="M20 25 L80 25 L50 10 Z" fill="#3f3f46" stroke="#000" /> 
+                         <path d="M20 25 L80 25 L50 10 Z" fill="#3f3f46" stroke="#000" /> {/* 斗笠 */}
                          <circle cx="50" cy="35" r="12" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
                          <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#27272a" /> 
                          <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#27272a" />
@@ -237,6 +242,7 @@
                          <path d="M35 15 Q50 5 65 15" fill="#44403c" />
                          <path d="M25 50 Q15 60 15 85" stroke="#333" strokeWidth="1" fill="#a8a29e" /> 
                          <path d="M75 50 Q85 60 85 85" stroke="#333" strokeWidth="1" fill="#a8a29e" />
+                         {/* 斧头 */}
                          <g transform="translate(85, 85) rotate(-20)">
                              <rect x="-2" y="-10" width="4" height="40" fill="#573a2e" />
                              <path d="M-2 5 L-10 0 L-10 20 L-2 15 Z" fill="#9ca3af" stroke="#000" />
@@ -245,10 +251,10 @@
                     ) : charVisual === 'pu_nichuan' ? (
                       <g>
                          <path d="M30 45 L70 45 L80 120 L20 120 Z" fill="#450a0a" stroke="#b91c1c" strokeWidth="1.5" /> 
-                         <circle cx="50" cy="28" r="14" fill="#991b1b" stroke="#000" strokeWidth="1.5" /> 
-                         <circle cx="44" cy="28" r="3" fill="#000" /> 
+                         <circle cx="50" cy="28" r="14" fill="#991b1b" stroke="#000" strokeWidth="1.5" /> {/* 面具底色 */}
+                         <circle cx="44" cy="28" r="3" fill="#000" /> {/* 眼洞 */}
                          <circle cx="56" cy="28" r="3" fill="#000" />
-                         <path d="M45 38 Q50 30 55 38" stroke="#fff" strokeWidth="2" fill="none" /> 
+                         <path d="M45 38 Q50 30 55 38" stroke="#fff" strokeWidth="2" fill="none" /> {/* 獠牙 */}
                          <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" /> 
                          <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" />
                       </g>
@@ -271,6 +277,8 @@
                          <path d="M48 36 Q50 38 52 36" stroke="#333" strokeWidth="1" fill="none" />
                          <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#d1fae5" /> 
                          <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#d1fae5" />
+                         
+                         {/* 装备渲染 (李莲花) */}
                          {weapon === 'sword_shaoshi' && (
                            <g transform="translate(85, 95) rotate(-45)">
                                <rect x="-3" y="-15" width="6" height="50" fill="#e2e8f0" stroke="#1e293b" strokeWidth="0.5" />
@@ -288,7 +296,9 @@
                          )}
                       </g>
                     ) : (
+                      // 默认：谢淮安 (素衣书生)
                       <g>
+                        {/* 1. 衣服层 */}
                         {clothes === 'robe_white' ? (
                            <path d="M35 45 L65 45 L80 125 L20 125 Z" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" /> 
                         ) : clothes === 'robe_gray' ? (
@@ -297,25 +307,35 @@
                            <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#e0f2fe" stroke="#334155" strokeWidth="1.5" /> 
                         )}
                         <path d="M35 45 L50 75 L65 45" fill="none" stroke="#333" strokeWidth="1" />
+                        
+                        {/* 2. 头部 */}
                         <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
                         <path d="M36 20 Q50 10 64 20 Q64 35 60 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
                         <path d="M36 20 Q30 35 32 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
                         <path d="M36 20 Q50 5 64 20 Q64 15 50 12 Q36 15 36 20" fill="#d1d5db" />
                         <circle cx="50" cy="15" r="5" fill="#d1d5db" />
                         <line x1="42" y1="15" x2="58" y2="15" stroke="#9ca3af" strokeWidth="1" />
+
+                        {/* 五官 */}
                         <path d="M44 29 L48 28" stroke="#333" strokeWidth="1" /> 
                         <path d="M56 28 L52 29" stroke="#333" strokeWidth="1" />
                         <circle cx="45" cy="31" r="1.5" fill="#333" />
                         <circle cx="55" cy="31" r="1.5" fill="#333" />
                         <path d="M48 37 L52 37" stroke="#333" strokeWidth="1" /> 
+
+                        {/* 手臂 */}
                         <path d="M35 50 Q20 60 20 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
                         <path d="M35 60 Q30 70 30 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
                         <circle cx="25" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" /> 
+
                         <path d="M65 50 Q80 60 80 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
                         <path d="M65 60 Q70 70 70 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
                         <circle cx="75" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" />
+
                         <circle cx="35" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
                         <circle cx="65" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+
+                        {/* 装备渲染 (谢淮安) */}
                         {weapon === 'knife' && (
                           <g transform="translate(80, 85) rotate(150)">
                              <rect x="-2" y="0" width="4" height="15" fill="#9ca3af" stroke="#333" strokeWidth="0.5" />
@@ -323,11 +343,12 @@
                              <rect x="-3" y="-5" width="6" height="5" fill="#78350f" />
                           </g>
                         )}
+                        {/* 传说铁锹: 更大，更华丽 */}
                         {weapon === 'shovel' && (
                           <g transform="translate(85, 95) rotate(-10)">
                              <rect x="-1.5" y="-45" width="3" height="60" fill="#3e2723" stroke="#000" strokeWidth="0.5" /> 
                              <path d="M-8 15 L8 15 L8 35 Q0 38 -8 35 Z" fill="#64748b" stroke="#000" strokeWidth="0.5" /> 
-                             <circle cx="0" cy="20" r="2" fill="red" />
+                             <circle cx="0" cy="20" r="2" fill="red" /> {/* 传说标记 */}
                           </g>
                         )}
                         {weapon === 'brush' && (
@@ -348,6 +369,7 @@
                              <line x1="-3" y1="-5" x2="3" y2="-5" stroke="#b45309" strokeWidth="0.5" />
                           </g>
                         )}
+                        {/* 普通装备 */}
                         {weapon === 'stick' && (
                            <rect x="80" y="70" width="4" height="40" fill="#a16207" transform="rotate(-30 82 90)" />
                         )}
@@ -365,6 +387,7 @@
                         )}
                       </g>
                     )}
+                    
                     {isSleeping && (
                        <g className="animate-pulse opacity-70">
                           <text x="65" y="15" fontSize="14" fill="blue" stroke="none">...</text>
@@ -377,11 +400,13 @@
           );
         };
 
+        // --- 主组件 ---
         const PaperDuel = () => {
              const [gameState, setGameState] = useState('LOGIN'); 
              const [inputCode, setInputCode] = useState('');
              const [loginError, setLoginError] = useState('');
              
+             // --- 状态管理 Ref ---
              const stateRef = useRef({
                 player: null,
                 enemy: null,
@@ -390,6 +415,7 @@
                 showPartnerSelect: false,
                 showStats: false,
                 showMap: false,
+                activeMobileTab: 'BATTLE',
                 isAutoBattle: true,
                 partnerActive: false,
                 currentPartner: null,
@@ -441,6 +467,7 @@
              const partnerRef = useRef(null);
              const battleLoopRef = useRef(null); 
 
+             // Initialize from Save
              useEffect(() => {
                 const savedData = loadSavedData();
                 if (savedData) {
@@ -459,6 +486,7 @@
                 }
              }, []);
 
+             // Save to LocalStorage
              useEffect(() => {
                 if (gameState !== 'LOGIN' && gameState !== 'GACHA') {
                     const dataToSave = { player, enemy, stage, maxUnlockedStage, unlockedPartners, gameState, shop: shopState };
@@ -466,6 +494,8 @@
                 }
              }, [player, enemy, stage, maxUnlockedStage, unlockedPartners, gameState, shopState]);
 
+
+             // --- Sync Ref ---
              useEffect(() => {
                 stateRef.current = { 
                     player, enemy, gameState, showShop, showPartnerSelect, showStats, showMap, activeMobileTab,
@@ -478,6 +508,7 @@
              useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
              useEffect(() => { chatsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats]);
              
+             // --- Timers ---
              useEffect(() => {
                 if (player.lastPartnerUseTime > 0) {
                   const interval = setInterval(() => {
@@ -512,6 +543,8 @@
                  return () => clearInterval(interval);
              }, [showShop, shopState.nextRefresh, player.id]);
 
+
+             // --- Game Logic Functions ---
              const updatePlayer = (updater) => setPlayer(prev => (typeof updater === 'function' ? updater(prev) : updater));
              const updateEnemy = (updater) => setEnemy(prev => (typeof updater === 'function' ? updater(prev) : updater));
              const addLog = (text, type = 'info') => setLogs(prev => [...prev.slice(-19), { id: Date.now() + Math.random(), text, type }]);
@@ -540,6 +573,7 @@
                 return { maxHp: baseHp + bonusHp + (p.level - 1) * 15, atk: baseAtk + bonusAtk + (p.level - 1) * 2, crit: baseCrit + bonusCrit, bonusAtk, bonusHp, bonusCrit };
              };
              
+             // --- Shop ---
              const generateShopItems = (pid) => {
                  const pool = EQUIPMENT_POOLS[pid] || EQUIPMENT_POOLS['xie_huaian'];
                  const commons = pool.filter(i => i.rarity === 1);
@@ -577,6 +611,7 @@
                   } else { addLog("银两不足", "error"); }
               };
 
+             // --- Game Actions ---
              const rollCharacter = () => {
                 const charData = randomItem(CHARACTERS_DATA); 
                 const skillDB = SKILLS_DB[charData.id]; 
@@ -744,6 +779,16 @@
                 }
              };
 
+             const handleGainExp = (amount) => {
+                updatePlayer(prev => {
+                    let { exp, maxExp, level, name, skills, partnerUnlocked, id } = prev; exp += amount; let leveledUp = false; let newSkill = null;
+                    while (exp >= maxExp) { exp -= maxExp; level += 1; maxExp = Math.floor(maxExp * 1.3); leveledUp = true; const skillTree = SKILLS_DB[id]; if (skillTree && skillTree[level]) { const skill = skillTree[level]; skills = [...skills, skill]; newSkill = skill; } if (level >= PARTNER_UNLOCK_LEVEL && !partnerUnlocked) { partnerUnlocked = true; } }
+                    let nextState = { ...prev, exp, maxExp, level, skills, partnerUnlocked }; if (level >= 3) nextState.partnerUnlocked = true;
+                    if (leveledUp) { const stats = getPlayerStats(nextState); nextState.currentHp = stats.maxHp; addLog(`心智精进！${name} 升至 Lv.${level}`, 'loot'); addFloatingText('LEVEL UP!', 'crit', 'player'); if (newSkill) { addLog(`领悟新计: [${newSkill.name}]`, 'success'); } }
+                    return nextState;
+                });
+             };
+
              const handleEquip = (item, index) => {
                   if (item.type === 'consumable') { handleUseItem(item, index); return; }
                   updatePlayer(prev => { const newSlots = { ...prev.slots }; if (item.type === 'weapon') newSlots.weapon = item; if (item.type === 'clothes') newSlots.clothes = item; if (item.type === 'guard') newSlots.guard = item; addLog(`装备了 [${item.name}]`, 'info'); return { ...prev, slots: newSlots }; });
@@ -816,9 +861,17 @@
              }
 
              return (
-                <div className="w-full h-screen bg-[#f4f0e6] text-[#4a3b32] font-serif overflow-hidden flex flex-col md:flex-row select-none">
-                    {/* 左侧 */}
-                    <div className="w-full md:w-72 bg-[#2a231d] text-[#e6dcca] p-5 flex flex-col border-r-4 border-[#3e342b] shadow-2xl z-20 relative">
+                <div className="w-full h-screen bg-[#f4f0e6] text-[#4a3b32] font-serif overflow-hidden flex flex-col lg:flex-row select-none">
+                    {/* 左侧 (Desktop) / 底部 (Mobile) 面板切换逻辑 */}
+                    {/* Mobile Navigation Tabs */}
+                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#2a231d] border-t-2 border-[#3e342b] flex justify-around p-2 z-50 text-[#e6dcca]">
+                        <button onClick={() => setActiveMobileTab('STATS')} className={`flex flex-col items-center ${activeMobileTab === 'STATS' ? 'text-[#d4af37]' : ''}`}><User size={20} /><span className="text-[10px]">案卷</span></button>
+                        <button onClick={() => setActiveMobileTab('BATTLE')} className={`flex flex-col items-center ${activeMobileTab === 'BATTLE' ? 'text-[#d4af37]' : ''}`}><Sword size={24} /><span className="text-[10px]">对决</span></button>
+                        <button onClick={() => setActiveMobileTab('LOGS')} className={`flex flex-col items-center ${activeMobileTab === 'LOGS' ? 'text-[#d4af37]' : ''}`}><MessageCircle size={20} /><span className="text-[10px]">传音</span></button>
+                    </div>
+
+                    {/* 左侧面板 (Desktop: Always / Mobile: Conditionally) */}
+                    <div className={`w-full lg:w-72 bg-[#2a231d] text-[#e6dcca] p-5 flex flex-col border-r-4 border-[#3e342b] shadow-2xl z-20 relative ${activeMobileTab === 'STATS' ? 'flex h-[calc(100vh-60px)]' : 'hidden lg:flex'}`}>
                         <div className="absolute top-0 right-0 p-2 opacity-10"><Scroll size={64} /></div>
                         <div className="mb-4 border-b border-[#5d4d3d] pb-2 cursor-pointer group hover:bg-[#3e3228] p-2 -mx-2 rounded transition-colors relative" onClick={() => setShowStats(true)} title="点击查看详情">
                            <div className="absolute inset-0 border-2 border-transparent group-hover:border-[#d4af37]/30 rounded pointer-events-none animate-pulse"></div>
@@ -837,7 +890,7 @@
                     </div>
 
                     {/* 中间 */}
-                    <div className="flex-1 flex flex-col relative bg-[#f4f0e6] shadow-inner">
+                    <div className={`flex-1 flex flex-col relative bg-[#f4f0e6] shadow-inner ${activeMobileTab === 'BATTLE' ? 'flex h-[calc(100vh-60px)] lg:h-auto' : 'hidden lg:flex'}`}>
                          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E")`}}></div>
                          {gameState === 'RESTING' && <div className="absolute inset-0 bg-[#2a303c]/60 z-10 pointer-events-none backdrop-grayscale-[0.5] transition-all duration-1000"></div>}
                          <div className="absolute top-8 w-full text-center z-10"><div className="inline-block border-2 border-[#8b2e2e] text-[#8b2e2e] px-6 py-2 font-serif font-bold text-xl tracking-widest bg-[#f4f0e6]/80 shadow-sm transform -rotate-1 rounded-sm relative"><div className="absolute inset-0 border border-[#8b2e2e] m-1 pointer-events-none"></div>{STORY_CONFIGS[player.id]?.[stage]?.title || `第 ${stage} 局`}</div></div>
@@ -855,11 +908,11 @@
                              {gameState !== 'MENU' && gameState !== 'RESTING' && (<div className="absolute right-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={enemyRef}><div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#f4f0e6] bg-[#2a231d] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm border border-[#4a3b32]">{enemy.name}</div><div className={`w-24 h-32 md:w-32 md:h-40 relative transform rotate-2 origin-bottom transition-all duration-500 ${enemy.isBoss ? 'scale-125' : ''}`}><PaperStickman color="#3e2323" isEnemy={true} charVisual={enemy.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div><div className="absolute -bottom-6 w-full h-1.5 bg-[#d6d3cd] rounded-full overflow-hidden border border-[#a89f91]"><div className="h-full bg-[#b91c1c]" style={{width: `${(enemy.currentHp / enemy.maxHp) * 100}%`}}></div></div>{floatingTexts.filter(t => t.target === 'enemy').map(t => (<div key={t.id} className={`absolute -top-20 left-1/2 -translate-x-1/2 font-bold pointer-events-none animate-float-up whitespace-nowrap font-serif ${t.type === 'crit' ? 'text-5xl text-[#d97706] drop-shadow-md' : 'text-3xl text-[#1f2937]'}`}>{t.value}</div>))}</div>)}
                          </div>
                          {/* Bottom Logs */}
-                         <div className="h-32 bg-[#e6ded5] border-t-2 border-[#d6d3cd] p-3 font-serif text-sm relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] flex justify-between"><div className="flex-1 overflow-y-auto custom-scrollbar">{logs.map(log => (<div key={log.id} className={`mb-1 ${log.type==='damage'?'text-[#991b1b]':log.type==='loot'?'text-[#7e22ce] font-bold':log.type==='error'?'text-red-700 font-bold':log.type==='success'?'text-[#15803d] font-bold':'text-[#57534e]'}`}>{log.text}</div>))}<div ref={logsEndRef} /></div><div className="ml-4 flex gap-3 items-center"><button onClick={() => updatePlayer(prev => { const newVal = !stateRef.current.isAutoBattle; setIsAutoBattle(newVal); return prev; })} className={`w-12 h-12 rounded-full border-2 shadow-md flex items-center justify-center transition-all ${isAutoBattle ? 'bg-[#15803d] border-[#166534] text-white' : 'bg-[#a8a29e] border-[#57534e] text-white'}`} title={isAutoBattle ? "切换为手动" : "切换为自动"}>{isAutoBattle ? <Zap size={20} /> : <MousePointer size={20} />}</button><span className="text-[10px] text-[#57534e] mt-1 font-bold">{isAutoBattle ? "自动中" : "手动"}</span>{!isAutoBattle && gameState === 'BATTLE' && (<button onClick={manualAttack} className="w-14 h-14 rounded-full bg-[#b91c1c] border-4 border-[#7f1d1d] shadow-lg flex flex-col items-center justify-center text-white hover:scale-110 active:scale-95 transition-all animate-pulse"><Sword size={24} /><span className="text-[10px] font-bold">出招</span></button>)}<button onClick={() => setShowMap(true)} className="w-12 h-12 rounded-full bg-[#57534e] border-2 border-[#a89f91] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Map size={18} /><span className="text-[9px] font-bold">舆图</span></button><button onClick={() => setShowShop(true)} className="w-12 h-12 rounded-full bg-[#3e2323] border-2 border-[#8b2e2e] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Store size={18} /><span className="text-[9px] font-bold">鬼市</span></button><button onClick={openPartnerSelect} disabled={partnerCooldownTimer > 0 || !player.partnerUnlocked || gameState !== 'BATTLE'} className={`w-12 h-12 rounded-full border-2 shadow-lg flex flex-col items-center justify-center relative overflow-hidden transition-all ${!player.partnerUnlocked ? 'bg-gray-400 border-gray-500 opacity-50 cursor-not-allowed' : partnerCooldownTimer > 0 ? 'bg-gray-300 border-gray-400 cursor-wait' : 'bg-[#d4af37] border-[#b45309] hover:scale-110 active:scale-95 cursor-pointer'}`}>{partnerCooldownTimer > 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[10px] font-bold z-10">{Math.ceil(partnerCooldownTimer)}</div>}<Users size={18} className={player.partnerUnlocked ? "text-[#3e2323]" : "text-gray-600"} /><span className="text-[9px] text-[#57534e] mt-0.5 font-bold">{!player.partnerUnlocked ? "未识" : "助战"}</span></button></div></div>
+                         <div className="h-32 bg-[#e6ded5] border-t-2 border-[#d6d3cd] p-3 font-serif text-sm relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] flex justify-between"><div className="flex-1 overflow-y-auto custom-scrollbar">{logs.map(log => (<div key={log.id} className={`mb-1 ${log.type==='damage'?'text-[#991b1b]':log.type==='loot'?'text-[#7e22ce] font-bold':log.type==='error'?'text-red-700 font-bold':log.type==='success'?'text-[#15803d] font-bold':'text-[#57534e]'}`}>{log.text}</div>))}<div ref={logsEndRef} /></div><div className="ml-4 flex gap-3 items-center"><button onClick={() => updatePlayer(prev => { const newVal = !stateRef.current.isAutoBattle; setIsAutoBattle(newVal); return prev; })} className={`w-12 h-12 rounded-full border-2 shadow-md flex items-center justify-center transition-all ${isAutoBattle ? 'bg-[#15803d] border-[#166534] text-white' : 'bg-[#a8a29e] border-[#57534e] text-white'}`} title={isAutoBattle ? "切换为手动" : "切换为自动"}>{isAutoBattle ? <Zap size={20} /> : <MousePointer size={20} />}</button><span className="text-[10px] text-[#57534e] mt-1 font-bold hidden md:block">{isAutoBattle ? "自动中" : "手动"}</span>{!isAutoBattle && gameState === 'BATTLE' && (<button onClick={manualAttack} className="w-14 h-14 rounded-full bg-[#b91c1c] border-4 border-[#7f1d1d] shadow-lg flex flex-col items-center justify-center text-white hover:scale-110 active:scale-95 transition-all animate-pulse"><Sword size={24} /><span className="text-[10px] font-bold">出招</span></button>)}<button onClick={() => setShowMap(true)} className="w-12 h-12 rounded-full bg-[#57534e] border-2 border-[#a89f91] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Map size={18} /><span className="text-[9px] font-bold">舆图</span></button><button onClick={() => setShowShop(true)} className="w-12 h-12 rounded-full bg-[#3e2323] border-2 border-[#8b2e2e] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Store size={18} /><span className="text-[9px] font-bold">鬼市</span></button><button onClick={openPartnerSelect} disabled={partnerCooldownTimer > 0 || !player.partnerUnlocked || gameState !== 'BATTLE'} className={`w-12 h-12 rounded-full border-2 shadow-lg flex flex-col items-center justify-center relative overflow-hidden transition-all ${!player.partnerUnlocked ? 'bg-gray-400 border-gray-500 opacity-50 cursor-not-allowed' : partnerCooldownTimer > 0 ? 'bg-gray-300 border-gray-400 cursor-wait' : 'bg-[#d4af37] border-[#b45309] hover:scale-110 active:scale-95 cursor-pointer'}`}>{partnerCooldownTimer > 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[10px] font-bold z-10">{Math.ceil(partnerCooldownTimer)}</div>}<Users size={18} className={player.partnerUnlocked ? "text-[#3e2323]" : "text-gray-600"} /><span className="text-[9px] text-[#57534e] mt-0.5 font-bold hidden md:block">{!player.partnerUnlocked ? "未识" : "助战"}</span></button></div></div>
                     </div>
 
                     {/* Right Side */}
-                    <div className="w-full md:w-72 bg-[#fdfbf7] border-l-4 border-[#d6d3cd] flex flex-col shadow-xl z-20 relative">
+                    <div className={`w-full lg:w-72 bg-[#fdfbf7] border-l-4 border-[#d6d3cd] flex flex-col shadow-xl z-20 relative ${activeMobileTab === 'LOGS' ? 'flex h-[calc(100vh-60px)]' : 'hidden lg:flex'}`}>
                         <div className="p-4 bg-[#f4f0e6] border-b border-[#e5e7eb] font-bold text-[#8b2e2e] flex items-center justify-center gap-2 font-serif text-lg tracking-widest relative"><div className="absolute left-4 opacity-50"><MessageCircle size={18} /></div>{player.id === 'xie_huaian' ? '长安密语' : '江湖传闻'}</div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#fdfbf7]" style={{backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}>{chats.map(chat => { const isPlayer = chat.speaker === 'Player'; return (<div key={chat.id} className={`flex flex-col ${isPlayer ? 'items-end' : 'items-start'} animate-pop-in group`}><span className="text-[10px] text-[#a89f91] mb-1 px-1">{isPlayer ? player.name : enemy.name}</span><div className={`relative max-w-[90%] px-4 py-3 text-sm shadow-sm border ${isPlayer ? 'bg-white border-[#d6d3cd] text-[#4a3b32] rounded-l-xl rounded-br-sm rounded-tr-xl' : 'bg-[#2a231d] border-[#4a3b32] text-[#e6dcca] rounded-r-xl rounded-bl-sm rounded-tl-xl'}`}>{chat.text}</div></div>); })}<div ref={chatsEndRef} /></div>
                     </div>
