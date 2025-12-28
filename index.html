@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>纸上江湖 - 长安二十四计 x 莲花楼</title>
+    
+    <!-- 引入 Tailwind CSS (样式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 Babel (用于编译 JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #2a231d; touch-action: manipulation; }
+        /* 自定义滚动条 */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3cd; border-radius: 2px; }
+        .bg-[#2a231d] .custom-scrollbar::-webkit-scrollbar-thumb { background: #5d4d3d; }
+
+        /* 动画定义 */
+        @keyframes float-up { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -60px) scale(1.2); opacity: 0; } }
+        .animate-float-up { animation: float-up 0.8s ease-out forwards; }
+        @keyframes lunge-right { 0% { transform: translateX(0) rotate(-2deg); } 50% { transform: translateX(60px) rotate(5deg); } 100% { transform: translateX(0) rotate(-2deg); } }
+        .animate-lunge-right { animation: lunge-right 0.25s ease-in-out; }
+        @keyframes lunge-left { 0% { transform: translateX(0) rotate(2deg); } 50% { transform: translateX(-60px) rotate(-5deg); } 100% { transform: translateX(0) rotate(2deg); } }
+        .animate-lunge-left { animation: lunge-left 0.25s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px) rotate(-5deg); } 40% { transform: translateX(5px) rotate(5deg); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+        .animate-shake { animation: shake 0.3s ease-in-out; }
+        @keyframes pop-in { 0% { opacity: 0; transform: scale(0.8) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+        .animate-pop-in { animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    </style>
+    
+    <!-- Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 核心逻辑：使用 data-type="module" 启用 ES Module 导入 -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+        import { Sword, ShoppingBag, Play, Trophy, MessageCircle, Moon, Clock, Zap, Star, Shield, Skull, BookOpen, Wind, Scroll, Feather, Briefcase, User, PenTool, Users, UserPlus, Coins, X, Store, MousePointer, Power, ChevronRight, Lock, Award, Info, Heart, Map, Coffee, KeyRound, Pill, Leaf, RefreshCw } from 'https://esm.sh/lucide-react@0.263.1';
+
+        // --- 游戏常量定义 ---
+        const REST_DURATION = 60; 
+        const PARTNER_UNLOCK_LEVEL = 3; 
+        const PARTNER_COOLDOWN_BASE = 150; 
+        const PARTNER_DURATION = 60000; 
+        const INVITE_CODES = ["517", "520", "1314", "qiqi", "guoguo"]; 
+        const SHOP_REFRESH_INTERVAL = 2 * 60 * 60 * 1000; // 2小时
+        const SHOP_REFRESH_COST = 50; // 手动刷新价格
+
+        // --- 剧情关卡配置 ---
+        const STORY_CONFIGS = {
+          'xie_huaian': {
+            1: { enemyName: "钦差大臣", title: "初入长安", hpScale: 1.5, atkScale: 1.2 },
+            2: { enemyName: "好友周墨", title: "旧友重逢", hpScale: 2.0, atkScale: 1.5 },
+            3: { enemyName: "王校尉", title: "暗流涌动", hpScale: 2.5, atkScale: 1.8 },
+            4: { enemyName: "萧文敬", title: "笑面虎", hpScale: 3.5, atkScale: 2.2 },
+            5: { enemyName: "萧武阳", title: "第一局·终", boss: true, hpScale: 10.0, atkScale: 5.0 },
+            6: { enemyName: "虎贲暗卫", title: "逐个击破", hpScale: 5.0, atkScale: 3.0 },
+            7: { enemyName: "蒲逆川", title: "鬼面复仇", hpScale: 6.0, atkScale: 3.5 },
+            8: { enemyName: "虎贲暗卫", title: "重重包围", hpScale: 7.0, atkScale: 4.0 },
+            9: { enemyName: "青衣", title: "青衣素裹", hpScale: 9.0, atkScale: 5.0 },
+            10: { enemyName: "刘子言", title: "第二局·终", boss: true, hpScale: 20.0, atkScale: 10.0 },
+          },
+          'li_lianhua': {
+            1: { enemyName: "江湖郎中", title: "东海之滨", hpScale: 1.5, atkScale: 1.2 },
+            2: { enemyName: "风火堂恶霸", title: "初露锋芒", hpScale: 2.0, atkScale: 1.5 },
+            3: { enemyName: "朴锄山尸", title: "诡案迷踪", hpScale: 2.5, atkScale: 1.8 },
+            4: { enemyName: "妙手空空", title: "故人相见", hpScale: 3.5, atkScale: 2.2 },
+            5: { enemyName: "笛飞声(影)", title: "宿命之敌", boss: true, hpScale: 10.0, atkScale: 5.0 },
+            6: { enemyName: "金鸳盟众", title: "百川归海", hpScale: 5.0, atkScale: 3.0 },
+            7: { enemyName: "万圣道死士", title: "阴谋浮现", hpScale: 6.0, atkScale: 3.5 },
+            8: { enemyName: "角丽谯", title: "红衣妖女", hpScale: 7.0, atkScale: 4.0 },
+            9: { enemyName: "封磬", title: "血海深仇", hpScale: 9.0, atkScale: 5.0 },
+            10: { enemyName: "单孤刀", title: "师门恩怨", boss: true, hpScale: 20.0, atkScale: 10.0 },
+          }
+        };
+
+        // 技能树
+        const SKILLS_DB = {
+          'xie_huaian': {
+            1: { id: 'jiedao', name: "借刀杀人", desc: "借力打力，受击时反弹 30% 伤害", type: "passive_reflect" },
+            3: { id: 'diaohu', name: "调虎离山", desc: "身法诡谲，闪避率提升 15%", type: "passive_dodge" },
+            6: { id: 'fudi', name: "釜底抽薪", desc: "攻心为上，攻击削减敌人攻击力", type: "passive_debuff" },
+            9: { id: 'jinchan', name: "金蝉脱壳", desc: "致命一击时免死并回血 (每场一次)", type: "passive_resurrect" },
+            12: { id: 'lianhuan', name: "连环计", desc: "计计相扣，40% 几率追加谋略伤害", type: "passive_double" },
+            15: { id: 'manutian', name: "瞒天过海", desc: "终极布局，敌人血量<40% 直接斩杀", type: "passive_execute" }
+          },
+          'li_lianhua': {
+            1: { id: 'yangzhouman', name: "扬州慢", desc: "至纯内功，暴击时恢复 15 点生命", type: "passive_heal" },
+            3: { id: 'posuobu', name: "婆娑步", desc: "独门轻功，闪避率提升 15%", type: "passive_dodge" },
+            6: { id: 'xiangyi', name: "相夷太剑", desc: "天下最快，攻击有 30% 几率二连击", type: "passive_double" },
+            9: { id: 'bi_cha', name: "碧茶压制", desc: "以毒攻毒，生命越低攻击越高", type: "passive_low_hp" },
+            12: { id: 'xiaolou', name: "小楼东风", desc: "绝世剑招，暴击伤害提升 50%", type: "passive_crit_dmg" },
+            15: { id: 'mingyue', name: "明月西海", desc: "剑意浩瀚，普攻附加真实伤害", type: "passive_true_dmg" }
+          }
+        };
+
+        // 伙伴配置
+        const PARTNERS_DB = {
+          'xie_huaian': [
+            { id: 'ye_zheng', name: "叶铮", title: "孤傲剑客", unlockLevel: 3, desc: "一剑光寒，生死无悔", visual: 'ye_zheng', skillName: "绝尘剑", skillDesc: "极高伤害，冷却时间翻倍", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE * 2, color: "#18181b" },
+            { id: 'zhang_mo', name: "张默", title: "原萧文敬", unlockLevel: 4, desc: "改头换面，以斧证道", visual: 'zhang_mo', skillName: "开山斧", skillDesc: "势大力沉的劈砍", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#52525b" },
+            { id: 'pu_nichuan', name: "蒲逆川", title: "鬼面人", unlockLevel: 7, desc: "恩怨分明，不死不休", visual: 'pu_nichuan', skillName: "血祭", skillDesc: "燃烧生命，疯狂攻击", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#7f1d1d" },
+            { id: 'bai_wan', name: "白皖", title: "神秘人", unlockLevel: 8, desc: "来去无踪，亦正亦邪", visual: 'bai_wan', skillName: "迷踪", skillDesc: "协助攻击，干扰敌人", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#e5e7eb" }
+          ],
+          'li_lianhua': [
+            { id: 'fang_duobing', name: "方多病", title: "天机堂少主", unlockLevel: 3, desc: "多愁公子，机关百变", visual: 'fang_duobing', skillName: "尔雅剑", skillDesc: "造成伤害并提供护盾", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#3b82f6" },
+            { id: 'di_feisheng', name: "笛飞声", title: "金鸳盟主", unlockLevel: 6, desc: "悲风白杨，唯快不破", visual: 'di_feisheng', skillName: "悲风白杨", skillDesc: "造成800%暴击伤害，无视防御", duration: 45000, cooldown: PARTNER_COOLDOWN_BASE * 1.5, color: "#b91c1c" }
+          ]
+        };
+
+        // 角色配置
+        const CHARACTERS_DATA = [
+          { id: 'xie_huaian', name: "谢淮安", realName: "刘知", desc: "白发谋士，步步为营。", baseHp: 120, baseAtk: 12, baseCrit: 20, visual: 'xie_huaian', themeColor: '#2a231d' },
+          { id: 'li_lianhua', name: "李莲花", realName: "李相夷", desc: "神秘神医，昔日剑神。", baseHp: 140, baseAtk: 15, baseCrit: 10, visual: 'li_lianhua', themeColor: '#064e3b' }
+        ];
+
+        // 装备池 (新增消耗品)
+        const EQUIPMENT_POOLS = {
+          'xie_huaian': [
+            { name: "削梨小刀", type: "weapon", visual: "knife", atk: 12, hp: 0, rarity: 1, price: 50, desc: "随身携带，锋利异常" },
+            { name: "旧铁锹", type: "weapon", visual: "shovel", atk: 45, hp: 50, rarity: 2, price: 500, desc: "传说中的神兵，管杀管埋" },
+            { name: "狼毫笔", type: "weapon", visual: "brush", atk: 10, hp: 0, rarity: 1, price: 40, desc: "笔锋如刀，杀人无形" },
+            { name: "精钢伞骨", type: "weapon", visual: "umbrella_rib", atk: 15, hp: 0, crit: 5, rarity: 1, price: 100, desc: "从油纸伞中抽出的利器" },
+            { name: "二十四计手札", type: "weapon", visual: "scroll", atk: 25, hp: 20, crit: 10, rarity: 2, price: 300, desc: "记载着绝世计谋" },
+            { name: "素麻衣", type: "clothes", visual: "robe_gray", atk: 0, hp: 50, rarity: 1, price: 50, desc: "粗布麻衣，掩人耳目" },
+            { name: "鹤氅", type: "clothes", visual: "robe_white", atk: 2, hp: 80, rarity: 2, price: 200, desc: "名士之风，超凡脱俗" },
+            { name: "护腕", type: "guard", visual: "bracer", atk: 1, hp: 30, rarity: 1, price: 60, desc: "藏在袖中的皮质护腕" },
+            { name: "平安扣", type: "guard", visual: "jade", atk: 0, hp: 40, rarity: 1, price: 80, desc: "并不保平安的旧物" },
+            { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "止血生肌，回复80点生命" },
+            { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" },
+            { name: "断木剑", type: "weapon", visual: "stick", atk: 3, hp: 0, rarity: 1, price: 10, desc: "小孩子过家家的玩具" },
+            { name: "石子", type: "weapon", visual: "stone", atk: 5, hp: 0, rarity: 1, price: 5, desc: "路边随处可见的石头" }
+          ],
+          'li_lianhua': [
+            { name: "少师剑", type: "weapon", visual: "sword_shaoshi", atk: 35, hp: 0, crit: 10, rarity: 2, price: 600, desc: "昔日剑神佩剑" },
+            { name: "刎颈软剑", type: "weapon", visual: "sword_wenjing", atk: 30, hp: 0, crit: 15, rarity: 2, price: 500, desc: "柔韧至极，防不胜防" },
+            { name: "青钢剑", type: "weapon", visual: "sword", atk: 15, hp: 0, rarity: 1, price: 80, desc: "江湖常见的兵器" },
+            { name: "一袋糖", type: "guard", visual: "candy", atk: 0, hp: 50, rarity: 1, price: 30, desc: "心情不好时吃一颗" },
+            { name: "狐狸精项圈", type: "guard", visual: "collar", atk: 5, hp: 60, rarity: 1, price: 120, desc: "狗也是很凶的" },
+            { name: "游医布袍", type: "clothes", visual: "robe_green", atk: 0, hp: 80, rarity: 1, price: 100, desc: "虽然旧了点，但很干净" },
+            { name: "莲花玉佩", type: "guard", visual: "jade_lotus", atk: 2, hp: 40, rarity: 1, price: 150, desc: "温润养人" },
+            { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "止血生肌，回复80点生命" },
+            { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" },
+            { name: "生锈剪刀", type: "weapon", visual: "scissors", atk: 5, hp: 0, rarity: 1, price: 10, desc: "用来剪药材的" },
+            { name: "草鞋", type: "guard", visual: "shoes", atk: 0, hp: 10, rarity: 1, price: 5, desc: "走两步就磨破了" }
+          ]
+        };
+
+        // --- 剧情台词库 ---
+        const STORY_DIALOGUES = {
+          "钦差大臣": [ "谢大人，这账本好像不对啊。", "官场如戏，全靠演技。" ],
+          "好友周墨": [ "淮安，收手吧。", "为了一个真相，值得吗？" ],
+          "王校尉": [ "奉命行事，别怪兄弟。", "虎贲营的刀，可不长眼！" ],
+          "萧文敬": [ "哈哈哈，刘知，你果然没死！", "只要我活着，你就永远是逃犯。" ],
+          "萧武阳": [ "你就是那个漏网之鱼？", "敢动萧家的人，胆子不小！" ],
+          "虎贲暗卫": [ "目标出现，格杀勿论。", "为了大统领！" ],
+          "蒲逆川": [ "谢淮安！你为什么不救她！", "刘子言...我要杀了刘子言！" ],
+          "青衣": [ "公子，奴家送你上路。", "这把伞，可是为了遮血的。" ],
+          "刘子言": [ "蝼蚁撼树，不自量力。", "谢淮安，你的计谋在我绝对实力面前，一文不值！" ],
+          "江湖郎中": ["看你印堂发黑，恐有血光之灾！", "我的药可是祖传的！"],
+          "风火堂恶霸": ["少管闲事！", "把那只狗留下！"],
+          "单孤刀": ["师弟，你还是这么天真。", "这天下，终究是我的！"],
+          "角丽谯": ["尊上只能是我的！", "男人，都该死！"],
+          "笛飞声(影)": ["李相夷，出剑！", "太慢了！"],
+          "default": [ "拿命来！", "休想逃！", "中计了！", "可恶..." ]
+        };
+
+        // --- 玩家通用对话 ---
+        const DIALOGUES = {
+          player: {
+            attack: ["此局已定。", "你输了。", "去去重去去，来来来来来。", "这招如何？", "铁锹...是用来埋你的。", "今日宜解签，大吉。"],
+            hit: ["咳咳...无妨。", "这点代价...值得。", "碧茶之毒又犯了...", "还在计算之中。", "哎哟，轻点！"],
+            win: ["清理干净。", "下一个。", "长安的雪，又红了几分。", "不过是弃子。", "承让。"]
+          },
+          enemy: {
+            intro: ["受死吧！"],
+            attack: ["拿命来！"],
+            hit: ["可恶..."]
+          }
+        };
+
+        const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+        const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+        // --- SVG 纸片人组件 ---
+        const PaperStickman = ({ color = "black", isEnemy = false, slots = {}, isSleeping = false, charVisual = 'hero' }) => {
+          const weapon = slots.weapon?.visual;
+          const clothes = slots.clothes?.visual;
+          const guard = slots.guard?.visual;
+          
+          return (
+            <svg viewBox="0 0 100 150" className={`w-full h-full drop-shadow-md overflow-visible transition-transform duration-500 ${isSleeping ? 'rotate-90 translate-y-10' : ''}`}>
+              <g stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                {isEnemy ? (
+                  // --- 敌人外观 ---
+                  <>
+                     {charVisual === '青衣' || charVisual === '角丽谯' ? (
+                        <g stroke="none">
+                            <path d="M30 45 L70 45 L80 125 L20 125 Z" fill={charVisual==='角丽谯'?'#b91c1c':'#d1fae5'} stroke="#333" strokeWidth="1.5" />
+                            <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                            <path d="M30 20 L50 40 L70 20 L50 0 Z" fill="#333" /> 
+                            <path d="M20 20 Q50 60 80 20" fill="none" stroke="#333" strokeWidth="10" opacity="0.8" /> 
+                        </g>
+                     ) : (
+                        <>
+                           <path d="M50 30 L30 60 L70 60 Z" fill="#333" fillOpacity="0.2" />
+                           <path d="M50 30 L50 90 L30 140 M50 90 L70 140 M30 60 L70 60" />
+                           <circle cx="50" cy="30" r="15" fill={charVisual === '蒲逆川' ? '#7f1d1d' : '#333'} />
+                           <path d="M40 25 L60 25" stroke="gold" strokeWidth="2" />
+                           <circle cx="42" cy="30" r="2" fill="red" stroke="none" />
+                           <circle cx="58" cy="30" r="2" fill="red" stroke="none" />
+                           <line x1="20" y1="40" x2="80" y2="30" stroke="#555" strokeWidth="3" />
+                        </>
+                     )}
+                  </>
+                ) : (
+                  <g stroke="none">
+                    {/* 伙伴与玩家形象 */}
+                    {charVisual === 'ye_zheng' ? (
+                      <g>
+                         <path d="M30 45 L70 45 L75 120 L25 120 Z" fill="#18181b" stroke="#52525b" strokeWidth="1.5" /> 
+                         <path d="M20 25 L80 25 L50 10 Z" fill="#3f3f46" stroke="#000" /> {/* 斗笠 */}
+                         <circle cx="50" cy="35" r="12" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                         <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#27272a" /> 
+                         <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#27272a" />
+                         <g transform="translate(85, 80) rotate(-60)">
+                             <rect x="-2" y="-10" width="4" height="60" fill="#e4e4e7" stroke="#000" />
+                         </g>
+                      </g>
+                    ) : charVisual === 'zhang_mo' ? (
+                      <g>
+                         <path d="M25 45 L75 45 L80 120 L20 120 Z" fill="#78716c" stroke="#44403c" strokeWidth="1.5" /> 
+                         <circle cx="50" cy="28" r="15" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                         <path d="M35 15 Q50 5 65 15" fill="#44403c" />
+                         <path d="M25 50 Q15 60 15 85" stroke="#333" strokeWidth="1" fill="#a8a29e" /> 
+                         <path d="M75 50 Q85 60 85 85" stroke="#333" strokeWidth="1" fill="#a8a29e" />
+                         {/* 斧头 */}
+                         <g transform="translate(85, 85) rotate(-20)">
+                             <rect x="-2" y="-10" width="4" height="40" fill="#573a2e" />
+                             <path d="M-2 5 L-10 0 L-10 20 L-2 15 Z" fill="#9ca3af" stroke="#000" />
+                         </g>
+                      </g>
+                    ) : charVisual === 'pu_nichuan' ? (
+                      <g>
+                         <path d="M30 45 L70 45 L80 120 L20 120 Z" fill="#450a0a" stroke="#b91c1c" strokeWidth="1.5" /> 
+                         <circle cx="50" cy="28" r="14" fill="#991b1b" stroke="#000" strokeWidth="1.5" /> {/* 面具底色 */}
+                         <circle cx="44" cy="28" r="3" fill="#000" /> {/* 眼洞 */}
+                         <circle cx="56" cy="28" r="3" fill="#000" />
+                         <path d="M45 38 Q50 30 55 38" stroke="#fff" strokeWidth="2" fill="none" /> {/* 獠牙 */}
+                         <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" /> 
+                         <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" />
+                      </g>
+                    ) : charVisual === 'bai_wan' ? (
+                      <g>
+                         <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#fff" stroke="#e5e7eb" strokeWidth="1.5" /> 
+                         <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                         <path d="M36 20 Q50 5 64 20" fill="none" stroke="#333" strokeWidth="2" />
+                         <path d="M35 50 Q20 60 20 85" stroke="#e5e7eb" strokeWidth="1" fill="#fff" />
+                         <path d="M65 50 Q80 60 80 85" stroke="#e5e7eb" strokeWidth="1" fill="#fff" />
+                      </g>
+                    ) : charVisual === 'li_lianhua' ? (
+                      <g>
+                         <path d="M30 45 L70 45 L80 120 L20 120 Z" fill={clothes==='robe_green'?'#f0fdf4':'#ecfdf5'} stroke="#065f46" strokeWidth="1.5" /> 
+                         <circle cx="50" cy="30" r="18" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                         <path d="M32 25 Q35 12 50 12 Q65 12 68 25 Q68 18 50 18 Q32 18 32 25" fill="#2d2d2d" />
+                         <rect x="40" y="8" width="20" height="4" fill="#10b981" rx="2" />
+                         <circle cx="44" cy="30" r="2" fill="#333" />
+                         <circle cx="56" cy="30" r="2" fill="#333" />
+                         <path d="M48 36 Q50 38 52 36" stroke="#333" strokeWidth="1" fill="none" />
+                         <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#d1fae5" /> 
+                         <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#d1fae5" />
+                         
+                         {/* 装备渲染 (李莲花) */}
+                         {weapon === 'sword_shaoshi' && (
+                           <g transform="translate(85, 95) rotate(-45)">
+                               <rect x="-3" y="-15" width="6" height="50" fill="#e2e8f0" stroke="#1e293b" strokeWidth="0.5" />
+                               <path d="M0 36 Q5 45 0 55" stroke="blue" strokeWidth="1.5" fill="none" />
+                           </g>
+                         )}
+                         {weapon === 'sword_wenjing' && (
+                          <g transform="translate(85, 95) rotate(-30)">
+                             <path d="M0 30 Q-10 10 0 -10 Q10 10 0 30" fill="#cbd5e1" stroke="#334155" strokeWidth="0.5" />
+                             <rect x="-5" y="25" width="10" height="3" fill="#b91c1c" stroke="#333" strokeWidth="0.5" />
+                          </g>
+                         )}
+                         {guard === 'candy' && (
+                            <circle cx="35" cy="80" r="4" fill="#f472b6" stroke="#db2777" />
+                         )}
+                      </g>
+                    ) : (
+                      // 默认：谢淮安 (素衣书生)
+                      <g>
+                        {/* 1. 衣服层 */}
+                        {clothes === 'robe_white' ? (
+                           <path d="M35 45 L65 45 L80 125 L20 125 Z" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" /> 
+                        ) : clothes === 'robe_gray' ? (
+                           <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#a8a29e" stroke="#57534e" strokeWidth="1.5" /> 
+                        ) : (
+                           <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#e0f2fe" stroke="#334155" strokeWidth="1.5" /> 
+                        )}
+                        <path d="M35 45 L50 75 L65 45" fill="none" stroke="#333" strokeWidth="1" />
+                        
+                        {/* 2. 头部 */}
+                        <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                        <path d="M36 20 Q50 10 64 20 Q64 35 60 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
+                        <path d="M36 20 Q30 35 32 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
+                        <path d="M36 20 Q50 5 64 20 Q64 15 50 12 Q36 15 36 20" fill="#d1d5db" />
+                        <circle cx="50" cy="15" r="5" fill="#d1d5db" />
+                        <line x1="42" y1="15" x2="58" y2="15" stroke="#9ca3af" strokeWidth="1" />
+
+                        {/* 五官 */}
+                        <path d="M44 29 L48 28" stroke="#333" strokeWidth="1" /> 
+                        <path d="M56 28 L52 29" stroke="#333" strokeWidth="1" />
+                        <circle cx="45" cy="31" r="1.5" fill="#333" />
+                        <circle cx="55" cy="31" r="1.5" fill="#333" />
+                        <path d="M48 37 L52 37" stroke="#333" strokeWidth="1" /> 
+
+                        {/* 手臂 */}
+                        <path d="M35 50 Q20 60 20 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                        <path d="M35 60 Q30 70 30 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                        <circle cx="25" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" /> 
+
+                        <path d="M65 50 Q80 60 80 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                        <path d="M65 60 Q70 70 70 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                        <circle cx="75" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" />
+
+                        <circle cx="35" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+                        <circle cx="65" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+
+                        {/* 装备渲染 (谢淮安) */}
+                        {weapon === 'knife' && (
+                          <g transform="translate(80, 85) rotate(150)">
+                             <rect x="-2" y="0" width="4" height="15" fill="#9ca3af" stroke="#333" strokeWidth="0.5" />
+                             <path d="M-2 15 L2 15 L0 25 Z" fill="#9ca3af" stroke="#333" strokeWidth="0.5" />
+                             <rect x="-3" y="-5" width="6" height="5" fill="#78350f" />
+                          </g>
+                        )}
+                        {/* 传说铁锹: 更大，更华丽 */}
+                        {weapon === 'shovel' && (
+                          <g transform="translate(85, 95) rotate(-10)">
+                             <rect x="-1.5" y="-45" width="3" height="60" fill="#3e2723" stroke="#000" strokeWidth="0.5" /> 
+                             <path d="M-8 15 L8 15 L8 35 Q0 38 -8 35 Z" fill="#64748b" stroke="#000" strokeWidth="0.5" /> 
+                             <circle cx="0" cy="20" r="2" fill="red" /> {/* 传说标记 */}
+                          </g>
+                        )}
+                        {weapon === 'brush' && (
+                          <g transform="translate(80, 85) rotate(-30)">
+                             <rect x="-1.5" y="-20" width="3" height="30" fill="#3f2c22" stroke="#000" strokeWidth="0.5" />
+                             <path d="M-2 10 Q0 20 2 10 Z" fill="#333" />
+                          </g>
+                        )}
+                        {weapon === 'umbrella_rib' && (
+                          <g transform="translate(80, 85) rotate(-45)">
+                             <rect x="-0.5" y="-10" width="1" height="45" fill="#d1d5db" stroke="#333" strokeWidth="0.5" />
+                             <path d="M-1 35 L1 35 L0 45 Z" fill="#d1d5db" /> 
+                          </g>
+                        )}
+                        {weapon === 'scroll' && (
+                          <g transform="translate(25, 85) rotate(10)">
+                             <rect x="-5" y="-10" width="10" height="25" fill="#fef3c7" stroke="#b45309" strokeWidth="1" />
+                             <line x1="-3" y1="-5" x2="3" y2="-5" stroke="#b45309" strokeWidth="0.5" />
+                          </g>
+                        )}
+                        {/* 普通装备 */}
+                        {weapon === 'stick' && (
+                           <rect x="80" y="70" width="4" height="40" fill="#a16207" transform="rotate(-30 82 90)" />
+                        )}
+                        {guard === 'shoes' && (
+                            <>
+                             <rect x="36" y="125" width="12" height="5" fill="#fcd34d" />
+                             <rect x="54" y="125" width="12" height="5" fill="#fcd34d" />
+                            </>
+                        )}
+                        {guard === 'bracer' && (
+                           <rect x="20" y="75" width="10" height="8" fill="#573a2e" opacity="0.8" transform="rotate(-10 25 79)" />
+                        )}
+                        {guard === 'jade' && (
+                           <circle cx="35" cy="75" r="3" fill="#86efac" stroke="#166534" strokeWidth="1" />
+                        )}
+                      </g>
+                    )}
+                    
+                    {isSleeping && (
+                       <g className="animate-pulse opacity-70">
+                          <text x="65" y="15" fontSize="14" fill="blue" stroke="none">...</text>
+                       </g>
+                    )}
+                  </g>
+                )}
+              </g>
+            </svg>
+          );
+        };
+
+        // --- 主组件 ---
+        const PaperDuel = () => {
+             const [gameState, setGameState] = useState('LOGIN'); 
+             const [inputCode, setInputCode] = useState('');
+             const [loginError, setLoginError] = useState('');
+             
+             // --- 状态管理 Ref ---
+             const stateRef = useRef({
+                player: null,
+                enemy: null,
+                gameState: 'LOGIN',
+                showShop: false,
+                showPartnerSelect: false,
+                showStats: false,
+                showMap: false,
+                isAutoBattle: true,
+                partnerActive: false,
+                currentPartner: null,
+                stage: 1,
+                maxUnlockedStage: 1, 
+                unlockedPartners: [],
+                processingVictory: false,
+                shop: { items: [], nextRefresh: 0 } // 新增：商店状态
+             });
+
+             const [player, setPlayer] = useState({
+                id: 'xie_huaian', name: "未命名", baseHp: 100, currentHp: 100, baseAtk: 10, baseCrit: 20,
+                level: 1, exp: 0, maxExp: 100, money: 100, bag: [],
+                slots: { weapon: null, clothes: null, guard: null },
+                skills: [], visual: 'xie_huaian', partnerUnlocked: false, lastPartnerUseTime: 0
+             });
+
+             const [enemy, setEnemy] = useState({ name: "敌人", maxHp: 100, currentHp: 100, atk: 8, level: 1, isBoss: false, visual: 'enemy' });
+             const [stage, setStage] = useState(1);
+             const [maxUnlockedStage, setMaxUnlockedStage] = useState(1);
+             const [logs, setLogs] = useState([]);
+             const [chats, setChats] = useState([]);
+             const [floatingTexts, setFloatingTexts] = useState([]);
+             const [restTime, setRestTime] = useState(0); 
+             const [resurrected, setResurrected] = useState(false);
+             const [partnerActive, setPartnerActive] = useState(false);
+             const [currentPartner, setCurrentPartner] = useState(null);
+             const [partnerCooldownTimer, setPartnerCooldownTimer] = useState(0);
+             const [unlockedPartners, setUnlockedPartners] = useState([]); 
+             const [showShop, setShowShop] = useState(false); 
+             const [showPartnerSelect, setShowPartnerSelect] = useState(false); 
+             const [showStats, setShowStats] = useState(false); 
+             const [showMap, setShowMap] = useState(false); 
+             const [isAutoBattle, setIsAutoBattle] = useState(true);
+             const [shopState, setShopState] = useState({ items: [], nextRefresh: 0 }); // 新增：商店状态
+             
+             const logsEndRef = useRef(null);
+             const chatsEndRef = useRef(null);
+             const playerRef = useRef(null);
+             const enemyRef = useRef(null);
+             const partnerRef = useRef(null);
+             const battleLoopRef = useRef(null); 
+
+             // --- 更新Ref ---
+             useEffect(() => {
+                stateRef.current = { 
+                    player, enemy, gameState, showShop, showPartnerSelect, showStats, showMap, 
+                    isAutoBattle, partnerActive, currentPartner, stage, unlockedPartners, 
+                    maxUnlockedStage, processingVictory: stateRef.current.processingVictory,
+                    shop: shopState 
+                };
+             }, [player, enemy, gameState, showShop, showPartnerSelect, showStats, showMap, isAutoBattle, partnerActive, currentPartner, stage, unlockedPartners, maxUnlockedStage, shopState]);
+             
+             useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
+             useEffect(() => { chatsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats]);
+             
+             // --- 定时器逻辑 ---
+             
+             // 伙伴冷却
+             useEffect(() => {
+                if (player.lastPartnerUseTime > 0) {
+                  const interval = setInterval(() => {
+                      const now = Date.now();
+                      const diff = (now - player.lastPartnerUseTime) / 1000;
+                      const remaining = Math.max(0, (currentPartner?.cooldown || PARTNER_COOLDOWN_BASE) - diff); 
+                      setPartnerCooldownTimer(remaining);
+                  }, 1000);
+                  return () => clearInterval(interval);
+                }
+             }, [player.lastPartnerUseTime, currentPartner]);
+
+             // 自动下一关
+             useEffect(() => {
+                if (gameState === 'VICTORY' && !showShop && !showPartnerSelect && !showStats && !showMap && isAutoBattle) {
+                  const timer = setTimeout(() => {
+                      if (stateRef.current.gameState === 'VICTORY') {
+                          nextStage();
+                          stateRef.current.processingVictory = false; 
+                      }
+                  }, 2000); 
+                  return () => clearTimeout(timer);
+                }
+             }, [gameState, showShop, showPartnerSelect, showStats, showMap, isAutoBattle]);
+             
+             // 商店刷新计时
+             useEffect(() => {
+                 const interval = setInterval(() => {
+                     // 简单计时器，用于强制刷新UI倒计时（实际上倒计时由渲染逻辑计算）
+                     if (showShop && shopState.nextRefresh > 0) {
+                         // 可以在这里检查是否过期并自动刷新，或者只在打开时检查
+                         if (Date.now() > shopState.nextRefresh) {
+                            refreshShop(player.id);
+                         }
+                         // 强制渲染以更新倒计时显示
+                         setShopState(prev => ({...prev}));
+                     }
+                 }, 1000);
+                 return () => clearInterval(interval);
+             }, [showShop, shopState.nextRefresh, player.id]);
+
+
+             // Helper Functions
+             const updatePlayer = (updater) => setPlayer(prev => (typeof updater === 'function' ? updater(prev) : updater));
+             const updateEnemy = (updater) => setEnemy(prev => (typeof updater === 'function' ? updater(prev) : updater));
+             const addLog = (text, type = 'info') => setLogs(prev => [...prev.slice(-19), { id: Date.now() + Math.random(), text, type }]);
+             const addChat = (speaker, text) => setChats(prev => [...prev.slice(-9), { id: Date.now() + Math.random(), speaker, text }]);
+             const addFloatingText = (value, type, target) => { 
+                const id = Date.now() + Math.random();
+                setFloatingTexts(prev => [...prev, { id, value, type, target }]);
+                setTimeout(() => setFloatingTexts(prev => prev.filter(ft => ft.id !== id)), 1000);
+             };
+
+             const handleLogin = () => {
+                if (INVITE_CODES.includes(inputCode)) {
+                  setGameState('GACHA'); 
+                } else {
+                  setLoginError("邀请码错误，请联系淇淇获取");
+                }
+             };
+
+             const getPlayerStats = (p) => {
+                let bonusAtk = 0; let bonusHp = 0; let bonusCrit = 0;
+                Object.values(p.slots).forEach(item => {
+                  if (item) { bonusAtk += (item.atk || 0); bonusHp += (item.hp || 0); bonusCrit += (item.crit || 0); }
+                });
+                if (p.skills.some(s => s.type === 'passive_crit_buff')) bonusCrit += 20; 
+                const baseHp = p.baseHp || 100; const baseAtk = p.baseAtk || 10; const baseCrit = p.baseCrit || 0;
+                return { maxHp: baseHp + bonusHp + (p.level - 1) * 15, atk: baseAtk + bonusAtk + (p.level - 1) * 2, crit: baseCrit + bonusCrit, bonusAtk, bonusHp, bonusCrit };
+             };
+             
+             // --- 商店逻辑 ---
+             const generateShopItems = (pid) => {
+                 const pool = EQUIPMENT_POOLS[pid] || EQUIPMENT_POOLS['xie_huaian'];
+                 const commons = pool.filter(i => i.rarity === 1);
+                 const rares = pool.filter(i => i.rarity === 2);
+                 const items = [];
+                 for (let i = 0; i < 6; i++) {
+                     // 5% 概率出现稀有，否则普通
+                     if (Math.random() < 0.05 && rares.length > 0) {
+                         items.push({ ...randomItem(rares), id: Date.now() + i }); // 添加唯一ID防止key冲突
+                     } else {
+                         items.push({ ...randomItem(commons), id: Date.now() + i });
+                     }
+                 }
+                 return items;
+             };
+             
+             const refreshShop = (pid, manual = false) => {
+                 if (manual) {
+                     if (player.money < 50) { addLog("银两不足，无法打点", "error"); return; }
+                     updatePlayer(prev => ({...prev, money: prev.money - 50}));
+                     addLog("花费50两，鬼市焕然一新", "success");
+                 }
+                 const newItems = generateShopItems(pid);
+                 const nextTime = Date.now() + (2 * 60 * 60 * 1000); // 2小时
+                 setShopState({ items: newItems, nextRefresh: nextTime });
+             };
+             
+             const openShop = () => {
+                 if (Date.now() > shopState.nextRefresh || shopState.items.length === 0) {
+                     refreshShop(player.id);
+                 }
+                 setShowShop(true);
+             };
+             
+             const handleBuy = (item) => {
+                  if (player.money >= item.price) {
+                      if (item.type !== 'consumable' && player.bag.some(i => i.name === item.name)) {
+                          addLog("已拥有此物品", "error");
+                          return;
+                      }
+                      updatePlayer(prev => ({
+                          ...prev,
+                          money: prev.money - item.price,
+                          bag: [...prev.bag, item]
+                      }));
+                      // 移除购买的物品
+                      setShopState(prev => ({
+                          ...prev,
+                          items: prev.items.filter(i => i.id !== item.id)
+                      }));
+                      addLog(`购得 [${item.name}]`, 'success');
+                  } else {
+                      addLog("银两不足", "error");
+                  }
+              };
+
+             // --- 角色与战斗逻辑 ---
+             const rollCharacter = () => {
+                const charData = randomItem(CHARACTERS_DATA); 
+                const skillDB = SKILLS_DB[charData.id]; 
+                const initialSkills = [skillDB[1]]; 
+                updatePlayer({ id: charData.id, name: charData.name, baseHp: charData.baseHp, currentHp: charData.baseHp, baseAtk: charData.baseAtk, baseCrit: charData.baseCrit, level: 1, exp: 0, maxExp: 100, money: 100, bag: [], slots: { weapon: null, clothes: null, guard: null }, skills: initialSkills, visual: charData.visual, partnerUnlocked: false, lastPartnerUseTime: 0 });
+                setStage(1); setMaxUnlockedStage(1); setLogs([]); setChats([]); setResurrected(false); setPartnerCooldownTimer(0); setIsAutoBattle(true); setUnlockedPartners([]); 
+                
+                // 初始化商店
+                refreshShop(charData.id);
+                
+                setGameState('MENU'); addLog(`天命所归。你是 [${charData.name}]`, 'system'); addLog(`初始绝学: [${skillDB[1].name}]`, 'loot');
+             };
+
+             const unlockPartner = (partnerId) => {
+                  if (!unlockedPartners.includes(partnerId)) {
+                      const partnerList = PARTNERS_DB[player.id];
+                      if (!partnerList) return;
+                      const partner = partnerList.find(p => p.id === partnerId);
+                      if (partner) {
+                         setUnlockedPartners(prev => [...prev, partnerId]);
+                         addLog(`结识豪杰: [${partner.name}]`, 'success');
+                         updatePlayer(p => ({...p, partnerUnlocked: true}));
+                      }
+                  }
+             };
+
+             const removePartner = (partnerId) => {
+                  setUnlockedPartners(prev => prev.filter(id => id !== partnerId));
+                  if (currentPartner?.id === partnerId) { setPartnerActive(false); setCurrentPartner(null); }
+                  const partnerList = PARTNERS_DB[player.id];
+                  const partner = partnerList?.find(p => p.id === partnerId);
+                  if (partner) addLog(`[${partner.name}] 离开了队伍`, 'info');
+             };
+
+             const spawnEnemy = (currentStage) => {
+                if (currentStage > 10) { setGameState('GAME_COMPLETED'); return; }
+                const storyConfig = STORY_CONFIGS[player.id] || STORY_CONFIGS['xie_huaian'];
+                const config = storyConfig[currentStage] || { enemyName: "神秘人", hpScale: 1, atkScale: 1 };
+                
+                // 剧情特殊事件
+                if (currentStage === 10 && unlockedPartners.includes('pu_nichuan')) {
+                    setTimeout(() => { forcedSummon('pu_nichuan', 10000); addLog("蒲逆川：拿命来！", 'loot'); setTimeout(() => { removePartner('pu_nichuan'); addLog("蒲逆川 力竭牺牲...", 'error'); }, 10000); }, 500);
+                }
+                if (currentStage === 9 && unlockedPartners.includes('bai_wan')) {
+                     setTimeout(() => { forcedSummon('bai_wan', 60000); addLog("白皖：我来助你一臂之力。", 'loot'); }, 500);
+                }
+
+                const hp = Math.floor(100 * config.hpScale); const atk = Math.floor(8 * config.atkScale);  
+                updateEnemy({ name: config.enemyName, maxHp: hp, currentHp: hp, atk: atk, level: currentStage, isBoss: config.boss, visual: config.enemyName });
+                setResurrected(false);
+                stateRef.current.processingVictory = false; 
+                addLog(`--- ${config.title} ---`, 'system');
+                const introTexts = STORY_DIALOGUES[config.enemyName] || STORY_DIALOGUES['default'];
+                addChat('Enemy', randomItem(introTexts));
+                setGameState('BATTLE');
+             };
+
+             const forcedSummon = (partnerId, duration) => {
+                  const partnerList = PARTNERS_DB[player.id];
+                  const partner = partnerList.find(p => p.id === partnerId);
+                  if (!partner) return;
+                  setCurrentPartner(partner); setPartnerActive(true);
+                  setTimeout(() => { setPartnerActive(false); setCurrentPartner(null); }, duration);
+             };
+
+             const handleAttackRound = () => {
+                const { player, enemy, gameState, partnerActive, currentPartner, processingVictory } = stateRef.current;
+                if (processingVictory || gameState !== 'BATTLE') return;
+                if (enemy.currentHp <= 0) { handleVictory(enemy); return; }
+                if (player.currentHp <= 0) { handleDefeat(); return; }
+
+                const stats = getPlayerStats(player); 
+                if (Math.random() < 0.25) {
+                    const enemyLines = STORY_DIALOGUES[enemy.name] || STORY_DIALOGUES['default'];
+                    const speaker = Math.random() > 0.5 ? 'Player' : 'Enemy';
+                    const text = speaker === 'Player' ? randomItem(DIALOGUES.player.attack) : randomItem(enemyLines);
+                    addChat(speaker, text);
+                }
+
+                triggerAnimation(playerRef, 'animate-lunge-right');
+                if (partnerActive && currentPartner) {
+                    triggerAnimation(partnerRef, 'animate-lunge-right');
+                    setTimeout(() => {
+                        const partnerDmg = Math.ceil(stats.atk * 0.8);
+                        updateEnemy(prev => {
+                            const newHp = Math.max(0, prev.currentHp - partnerDmg);
+                            addFloatingText(`-${partnerDmg}`, 'loot', 'enemy');
+                            return { ...prev, currentHp: newHp };
+                        });
+                    }, 100); 
+                }
+                setTimeout(() => triggerAnimation(enemyRef, 'animate-lunge-left'), 200);
+
+                setTimeout(() => {
+                  const { enemy: currEnemy, player: currPlayer } = stateRef.current;
+                  if (currEnemy.currentHp <= 0) { handleVictory(currEnemy); return; }
+                  let damage = stats.atk; let hitCount = 1;
+                  const hasSkill = (skills, type) => skills.some(s => s.type === type);
+                  if (hasSkill(currPlayer.skills, 'passive_double') && Math.random() < 0.4) { hitCount = 2; addFloatingText('连环计!', 'loot', 'player'); }
+                  if (hasSkill(currPlayer.skills, 'passive_debuff')) { updateEnemy(prev => ({...prev, atk: Math.max(1, prev.atk - 2)})); if(Math.random()<0.2) addFloatingText('攻心', 'info', 'player'); }
+                  
+                  let totalDamage = 0;
+                  for (let i = 0; i < hitCount; i++) {
+                      let currentHitDmg = damage;
+                      let isCrit = Math.random() * 100 < stats.crit;
+                      if (isCrit) currentHitDmg = Math.floor(currentHitDmg * 1.8); 
+                      currentHitDmg = Math.floor(currentHitDmg * (randomInt(90, 110) / 100));
+                      if (hasSkill(currPlayer.skills, 'passive_execute') && (currEnemy.currentHp / currEnemy.maxHp < 0.4)) { currentHitDmg = 9999; addFloatingText('斩杀!', 'crit', 'player'); }
+                      totalDamage += currentHitDmg;
+                      updateEnemy(prev => {
+                          const newHp = prev.currentHp - currentHitDmg;
+                          setTimeout(() => { addFloatingText(`-${currentHitDmg}${isCrit ? '!' : ''}`, isCrit ? 'crit' : 'damage', 'enemy'); }, i * 200);
+                          return { ...prev, currentHp: newHp }; 
+                      });
+                  }
+                  addLog(`造成 ${totalDamage} 伤害${hitCount > 1 ? '(连环)' : ''}`);
+                  triggerAnimation(enemyRef, 'animate-shake');
+                }, 300);
+
+                setTimeout(() => {
+                  const { enemy: currEnemy, player: currPlayer } = stateRef.current;
+                  if (currEnemy.currentHp <= 0) { handleVictory(currEnemy); return; }
+                  if (currPlayer.currentHp <= 0) { handleDefeat(); return; }
+
+                  updateEnemy(latestEnemy => {
+                      let damage = latestEnemy.atk;
+                      damage = Math.floor(damage * (randomInt(90, 110) / 100));
+                      const hasSkill = (skills, type) => skills.some(s => s.type === type);
+
+                      if (hasSkill(player.skills, 'passive_dodge') && Math.random() < 0.15) { addFloatingText('闪避!', 'info', 'player'); damage = 0; }
+                      if (damage > 0) {
+                          if (hasSkill(player.skills, 'passive_reflect')) {
+                              const reflectDmg = Math.floor(damage * 0.3);
+                              setTimeout(() => { updateEnemy(prev => { const newHp = Math.max(0, prev.currentHp - reflectDmg); if (reflectDmg > 0) addFloatingText(`反伤-${reflectDmg}`, 'loot', 'enemy'); return {...prev, currentHp: newHp}; }); }, 50);
+                          }
+                          updatePlayer(prev => {
+                            let newHp = prev.currentHp - damage;
+                            addFloatingText(`-${damage}`, 'damage', 'player');
+                            if (newHp <= 0 && hasSkill(prev.skills, 'passive_resurrect') && !resurrected) {
+                                const maxHp = getPlayerStats(prev).maxHp; newHp = Math.floor(maxHp * 0.3); setResurrected(true); addFloatingText('重生!', 'crit', 'player'); addLog('绝处逢生！', 'success');
+                            }
+                            return { ...prev, currentHp: newHp };
+                          });
+                          triggerAnimation(playerRef, 'animate-shake');
+                      }
+                      return latestEnemy;
+                  });
+                }, 800);
+             };
+
+             const triggerAnimation = (ref, className) => { if (ref.current) { ref.current.classList.remove(className); void ref.current.offsetWidth; ref.current.classList.add(className); setTimeout(() => { if(ref.current) ref.current.classList.remove(className); }, 500); } };
+
+             const handleVictory = (defeatedEnemy) => {
+                const { gameState, processingVictory, stage } = stateRef.current;
+                if (gameState === 'VICTORY' || processingVictory) return;
+                stateRef.current.processingVictory = true; stateRef.current.gameState = 'VICTORY'; setGameState('VICTORY');
+                addChat('Player', randomItem(DIALOGUES.player.win)); addLog(`${defeatedEnemy.name} 已被清除`, 'success');
+                const partnerList = PARTNERS_DB[player.id];
+                if (partnerList) { partnerList.forEach(p => { if (stage === p.unlockLevel) unlockPartner(p.id); }); }
+                if (stage < 10 && stage >= stateRef.current.maxUnlockedStage) { setMaxUnlockedStage(s => s + 1); addLog('新区域已在舆图上解锁', 'system'); }
+                const xpGain = 40 + (stage * 15) + (defeatedEnemy.isBoss ? 150 : 0); const moneyGain = randomInt(20, 50) + (defeatedEnemy.isBoss ? 100 : 0);
+                handleGainExp(xpGain); updatePlayer(prev => ({...prev, money: prev.money + moneyGain})); addLog(`获得 ${xpGain} 阅历, ${moneyGain} 银两`, 'info');
+                
+                // 掉率降低至 25%
+                if (Math.random() < 0.25) {
+                  const pool = EQUIPMENT_POOLS[player.id] || EQUIPMENT_POOLS['xie_huaian'];
+                  const newItem = randomItem(pool);
+                  let canAdd = true; if (newItem.type !== 'consumable') { if (player.bag.some(i => i.name === newItem.name)) canAdd = false; }
+                  if (canAdd) { addLog(`缴获: [${newItem.name}]`, 'loot'); updatePlayer(prev => ({ ...prev, bag: [...prev.bag, newItem] })); } else { const sellPrice = Math.floor(newItem.price / 2); addLog(`发现 [${newItem.name}] (折算 ${sellPrice} 两)`, 'info'); updatePlayer(prev => ({...prev, money: prev.money + sellPrice})); }
+                }
+             };
+
+             const handleGainExp = (amount) => {
+                updatePlayer(prev => {
+                    let { exp, maxExp, level, name, skills, partnerUnlocked, id } = prev; exp += amount; let leveledUp = false; let newSkill = null;
+                    while (exp >= maxExp) { exp -= maxExp; level += 1; maxExp = Math.floor(maxExp * 1.3); leveledUp = true; const skillTree = SKILLS_DB[id]; if (skillTree && skillTree[level]) { const skill = skillTree[level]; skills = [...skills, skill]; newSkill = skill; } if (level >= PARTNER_UNLOCK_LEVEL && !partnerUnlocked) { partnerUnlocked = true; } }
+                    let nextState = { ...prev, exp, maxExp, level, skills, partnerUnlocked }; if (level >= 3) nextState.partnerUnlocked = true;
+                    if (leveledUp) { const stats = getPlayerStats(nextState); nextState.currentHp = stats.maxHp; addLog(`心智精进！${name} 升至 Lv.${level}`, 'loot'); addFloatingText('LEVEL UP!', 'crit', 'player'); if (newSkill) { addLog(`领悟新计: [${newSkill.name}]`, 'success'); } }
+                    return nextState;
+                });
+             };
+
+             const handleEquip = (item, index) => {
+                  if (item.type === 'consumable') { handleUseItem(item, index); return; }
+                  updatePlayer(prev => { const newSlots = { ...prev.slots }; if (item.type === 'weapon') newSlots.weapon = item; if (item.type === 'clothes') newSlots.clothes = item; if (item.type === 'guard') newSlots.guard = item; addLog(`装备了 [${item.name}]`, 'info'); return { ...prev, slots: newSlots }; });
+             };
+             const handleUseItem = (item, index) => {
+                  const stats = getPlayerStats(player); if (player.currentHp >= stats.maxHp && !item.cure) { addLog("气血已满，无需使用", "info"); return; }
+                  updatePlayer(prev => { const newBag = [...prev.bag]; newBag.splice(index, 1); let recovered = 0; let newHp = prev.currentHp; if (item.heal) { newHp = Math.min(stats.maxHp, prev.currentHp + item.heal); recovered = newHp - prev.currentHp; } addLog(`使用了 [${item.name}]，恢复 ${recovered} 点气血`, 'success'); if (item.cure) { addLog(`[${item.name}] 发挥药效，毒素已解`, 'success'); } return { ...prev, currentHp: newHp, bag: newBag }; });
+             };
+             const handleUnequip = (type) => { updatePlayer(prev => { const newSlots = { ...prev.slots }; const item = newSlots[type]; if (item) { addLog(`卸下了 [${item.name}]`, 'info'); newSlots[type] = null; } return { ...prev, slots: newSlots }; }); };
+             const handleSell = (e, item, index) => { e.stopPropagation(); const sellPrice = Math.floor(item.price / 2); updatePlayer(prev => { const newSlots = { ...prev.slots }; if (newSlots.weapon === item) newSlots.weapon = null; if (newSlots.clothes === item) newSlots.clothes = null; if (newSlots.guard === item) newSlots.guard = null; const newBag = [...prev.bag]; newBag.splice(index, 1); return { ...prev, money: prev.money + sellPrice, bag: newBag, slots: newSlots }; }); addLog(`售出 [${item.name}]，获得 ${sellPrice} 银两`, 'info'); };
+             // const handleBuy = ... (Moved to shop open logic to refresh stock)
+             
+             const handleDefeat = () => { if (gameState === 'RESTING') return; setGameState('RESTING'); setRestTime(REST_DURATION); addLog('布局被破，暂避锋芒...', 'error'); };
+             const nextStage = () => { if (stage >= 10) { setGameState('GAME_COMPLETED'); return; } setStage(s => s + 1); const nextS = stage + 1; spawnEnemy(nextS); };
+             const selectStage = (s) => { setShowMap(false); setStage(s); spawnEnemy(s); };
+             const summonSelectedPartner = (partner) => { setShowPartnerSelect(false); setCurrentPartner(partner); if (gameState !== 'BATTLE') return; const stats = getPlayerStats(player); let damage = stats.atk * 4; setPartnerActive(true); updatePlayer(prev => ({ ...prev, lastPartnerUseTime: Date.now() })); setPartnerCooldownTimer(partner.cooldown); addLog(`${partner.name} 助战！发动 [${partner.skillName}]`, 'loot'); addFloatingText(`${partner.skillName}!`, 'crit', 'player'); updateEnemy(prev => { const newHp = Math.max(0, prev.currentHp - damage); setTimeout(() => addFloatingText(`-${damage}`, 'crit', 'enemy'), 300); return { ...prev, currentHp: newHp }; }); setTimeout(() => { setPartnerActive(false); setCurrentPartner(null); addLog(`${partner.name}：暂且退下。`, 'info'); }, partner.duration); };
+             const manualAttack = () => { if (gameState === 'BATTLE' && !showShop && !showPartnerSelect && !showStats && !showMap && !isAutoBattle) { handleAttackRound(); } };
+             const openPartnerSelect = () => { if (!player.partnerUnlocked) return; if (partnerCooldownTimer > 0) { addLog(`伙伴休整中...`, 'error'); return; } setShowPartnerSelect(true); };
+             const finishRest = () => { const { player, stage } = stateRef.current; const stats = getPlayerStats(player); updatePlayer(p => ({...p, currentHp: stats.maxHp})); addLog('休整完毕，重回棋局！', 'system'); spawnEnemy(stage); };
+             const instantRevive = () => { const { player } = stateRef.current; const stats = getPlayerStats(player); updatePlayer(p => ({...p, currentHp: stats.maxHp})); setRestTime(0); };
+
+             useEffect(() => { battleLoopRef.current = handleAttackRound; });
+             useEffect(() => { const battleInterval = setInterval(() => { const { gameState, showShop, showPartnerSelect, showStats, showMap, isAutoBattle } = stateRef.current; if (gameState === 'BATTLE' && !showShop && !showPartnerSelect && !showStats && !showMap && isAutoBattle) { if (battleLoopRef.current) battleLoopRef.current(); } }, 1500); return () => clearInterval(battleInterval); }, []); 
+             useEffect(() => { const restInterval = setInterval(() => { const { gameState, player } = stateRef.current; if (gameState !== 'RESTING') return; setRestTime(prev => { if (prev <= 0) return 0; const stats = getPlayerStats(player); updatePlayer(p => ({ ...p, currentHp: Math.min(stats.maxHp, p.currentHp + (stats.maxHp / REST_DURATION)) })); return prev - 1; }); }, 1000); return () => clearInterval(restInterval); }, []);
+             useEffect(() => { if (gameState === 'RESTING' && restTime === 0) { finishRest(); } }, [restTime, gameState]);
+
+             // Render Logic
+             const stats = getPlayerStats(player);
+             const charData = CHARACTERS_DATA.find(c => c.id === player.id) || CHARACTERS_DATA[0];
+             const currentPartnerList = PARTNERS_DB[player.id] || [];
+             
+             // --- JSX ---
+             if (gameState === 'LOGIN') {
+                 return (
+                    <div className="w-full h-screen bg-[#3e2323] flex items-center justify-center">
+                        <div className="bg-[#f4f0e6] p-10 rounded-sm border-8 border-[#2a231d] shadow-2xl text-center max-w-md w-full relative z-10">
+                            <h1 className="text-4xl font-black mb-4 text-[#8b2e2e] tracking-widest font-serif">纸上江湖</h1>
+                            <p className="text-[#57534e] mb-8 text-sm italic">此游戏为 <span className="font-bold text-[#b91c1c]">淇淇</span> 所有，专为 <span className="font-bold text-[#b91c1c]">果果</span> 自嗨</p>
+                            <input type="text" value={inputCode} onChange={(e) => setInputCode(e.target.value)} placeholder="请输入邀请码" className="w-full p-3 border-2 border-[#a89f91] rounded bg-white text-center mb-4 focus:outline-none focus:border-[#d4af37] text-black" />
+                            {loginError && <div className="text-red-500 text-xs mb-4">{loginError}</div>}
+                            <button onClick={handleLogin} className="w-full bg-[#d4af37] text-[#3e2323] py-3 rounded font-bold hover:bg-[#b45309] transition-all flex items-center justify-center gap-2"><KeyRound size={20} /> 开启画卷</button>
+                        </div>
+                    </div>
+                 );
+             }
+             
+             if (gameState === 'GACHA') {
+                return (
+                    <div className="w-full h-screen bg-[#2a231d] flex flex-col items-center justify-center font-serif text-[#e6dcca] z-50">
+                        <h2 className="text-2xl mb-8 animate-pulse tracking-widest">命运轮转，何人入局？</h2>
+                        <button onClick={rollCharacter} className="w-32 h-32 rounded-full border-4 border-[#d4af37] flex items-center justify-center text-4xl hover:scale-110 transition-transform bg-[#3e342b] shadow-[0_0_30px_rgba(212,175,55,0.5)] cursor-pointer">抽</button>
+                    </div>
+                );
+             }
+
+             if (gameState === 'MENU') {
+                 return (
+                    <div className="w-full h-screen bg-[#1c1917]/90 flex items-center justify-center backdrop-blur-sm">
+                        <div className="bg-[#f4f0e6] p-10 rounded-sm border-8 border-[#2a231d] shadow-2xl text-center max-w-md w-full transform rotate-1 relative">
+                            <h1 className="text-5xl font-black mb-4 text-[#2a231d] tracking-widest font-serif" style={{textShadow: '2px 2px 0px rgba(0,0,0,0.1)'}}>{player.id === 'xie_huaian' ? '长安二十四计' : '莲花楼奇闻'}</h1>
+                            <p className="text-[#78716c] mb-8 font-serif italic text-lg">— 纸上权谋 —</p>
+                            <div className="bg-[#e6ded5] p-4 rounded-sm border border-[#d6d3cd] text-left text-sm mb-8 font-serif leading-loose text-[#444]">
+                                <p><span className="font-bold text-[#8b2e2e]">主角：</span> {player.name}</p>
+                                <p><span className="font-bold text-[#8b2e2e]">能力：</span> {player.id === 'xie_huaian' ? '运筹帷幄，借刀杀人' : '相夷太剑，扬州慢'}</p>
+                            </div>
+                            <button onClick={() => { spawnEnemy(1); }} className="w-full bg-[#8b2e2e] text-[#f4f0e6] py-3 rounded-sm font-bold hover:bg-[#7f1d1d] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 border-2 border-[#fecaca] shadow-lg text-lg font-serif"><Feather size={20} /> 入局</button>
+                        </div>
+                    </div>
+                 );
+             }
+
+             return (
+                <div className="w-full h-screen bg-[#f4f0e6] text-[#4a3b32] font-serif overflow-hidden flex flex-col md:flex-row select-none">
+                    {/* 左侧 */}
+                    <div className="w-full md:w-72 bg-[#2a231d] text-[#e6dcca] p-5 flex flex-col border-r-4 border-[#3e342b] shadow-2xl z-20 relative">
+                        <div className="absolute top-0 right-0 p-2 opacity-10"><Scroll size={64} /></div>
+                        <div className="mb-4 border-b border-[#5d4d3d] pb-2 cursor-pointer group hover:bg-[#3e3228] p-2 -mx-2 rounded transition-colors relative" onClick={() => setShowStats(true)} title="点击查看详情">
+                           <div className="absolute inset-0 border-2 border-transparent group-hover:border-[#d4af37]/30 rounded pointer-events-none animate-pulse"></div>
+                           <div className="flex justify-between items-center mb-2"><h2 className="text-xl font-bold flex items-center gap-2 text-[#d4af37]"><User size={20} className="stroke-[#d4af37]" /> {player.id === 'xie_huaian' ? '案卷' : '医案'}</h2><MousePointer size={14} className="text-[#a89f91] opacity-50 group-hover:opacity-100" /></div>
+                           <div className="space-y-1 text-sm group-hover:text-[#fbbf24] transition-colors">
+                             <div className="flex justify-between items-center"><span className="text-[#a89f91]">姓名:</span> <span className="text-[#f5f5f5] font-bold text-lg">{player.name}</span></div>
+                             <div className="flex justify-between items-center"><span className="text-[#a89f91]">品阶:</span> <span className="text-[#fbbf24]">Lv.{player.level}</span></div>
+                             <div className="grid grid-cols-2 gap-2 mt-2"><div className="bg-[#1e1915] p-1 px-2 rounded border border-[#3e342b] flex justify-between"><span>武/智</span><span className="text-red-400">{stats.atk}</span></div><div className="bg-[#1e1915] p-1 px-2 rounded border border-[#3e342b] flex justify-between"><span>洞察</span><span className="text-orange-400">{stats.crit}%</span></div></div>
+                             <div className="flex items-center gap-2 mt-2 bg-[#1e1915] p-1 px-2 rounded border border-[#3e342b] text-[#fbbf24]"><Coins size={14} /> <span>{player.money} 两</span></div>
+                             <div className="mt-2"><div className="flex justify-between text-xs mb-1 text-[#a89f91]"><span>精力</span><span>{Math.floor(player.currentHp)}/{stats.maxHp}</span></div><div className="w-full h-3 bg-[#1a1612] rounded border border-[#5d4d3d] p-[1px] relative"><div className="bg-gradient-to-r from-red-800 to-red-600 h-full rounded-sm transition-all duration-500" style={{width: `${Math.min(100, (player.currentHp / stats.maxHp) * 100)}%`}}></div></div></div>
+                           </div>
+                        </div>
+                        <div className="mb-4"><h2 className="text-sm font-bold flex items-center gap-2 mb-2 text-[#a89f91]"><Shield size={14} /> 当前装备 (点击卸下)</h2><div className="grid grid-cols-3 gap-2">{['weapon', 'clothes', 'guard'].map(type => (<div key={type} className="aspect-square bg-[#1e1915] border border-[#5d4d3d] rounded flex flex-col items-center justify-center relative cursor-pointer hover:border-[#d4af37] transition-all group" title={player.slots[type]?.desc} onClick={() => handleUnequip(type)}><span className="text-[10px] text-[#555] absolute top-0.5">{type === 'weapon' ? '武器' : type === 'clothes' ? '衣装' : '护具'}</span>{player.slots[type] ? (<><div className="text-xs text-[#d4af37] text-center font-bold px-1 mt-2">{player.slots[type].name}</div><div className="text-[9px] text-[#888] scale-90">{player.slots[type].atk > 0 ? `攻+${player.slots[type].atk}` : `血+${player.slots[type].hp}`}</div><div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-xs text-white">卸下</div></>) : <div className="text-[#333]">-</div>}</div>))}</div></div>
+                        <div className="flex-1 overflow-hidden flex flex-col mb-4"><h2 className="text-sm font-bold flex items-center gap-2 mb-2 text-[#a89f91] border-b border-[#5d4d3d] pb-1"><BookOpen size={14} /> 已领悟</h2><div className="overflow-y-auto space-y-2 pr-1 custom-scrollbar">{player.skills.length === 0 && <div className="text-xs text-[#555] italic">暂无</div>}{player.skills.map((skill) => (<div key={skill.id} className="bg-[#352b22] p-2 rounded-sm border-l-2 border-[#8b2e2e]"><div className="font-bold text-[#e6dcca] text-xs flex justify-between">{skill.name}<span className="text-[9px] text-[#888]">{skill.type.includes('passive') ? '被动' : '主动'}</span></div><div className="text-[9px] text-[#a89f91] leading-tight mt-1">{skill.desc}</div></div>))}</div></div>
+                        <div className="h-1/4 overflow-hidden flex flex-col border-t border-[#5d4d3d] pt-3"><h2 className="text-sm font-bold flex items-center gap-2 mb-2 text-[#a89f91]"><Briefcase size={14} /> 行囊</h2><div className="overflow-y-auto space-y-1.5 pr-2 custom-scrollbar">{player.bag.length === 0 && <div className="text-xs text-[#555] text-center mt-4">空空如也</div>}{player.bag.map((item, idx) => { const isEquipped = player.slots.weapon === item || player.slots.clothes === item || player.slots.guard === item; const isConsumable = item.type === 'consumable'; return (<div key={idx} onClick={() => handleEquip(item, idx)} className={`px-2 py-1.5 rounded-sm border text-xs flex justify-between items-center cursor-pointer transition-all hover:bg-[#3e3228] ${isEquipped ? 'bg-[#3e2323] border-[#8b2e2e]' : 'bg-[#352b22] border-[#4a3b32]'}`}><span className={`${item.rarity===2 ? 'text-[#eebbcb]' : 'text-[#d6d3cd]'} ${isEquipped ? 'font-bold' : ''}`}>{item.name} {isEquipped && <span className="text-[8px] text-[#8b2e2e] bg-[#000]/20 px-1 rounded ml-1">[已装备]</span>}{isConsumable && <span className="text-[8px] text-[#10b981] bg-[#000]/20 px-1 rounded ml-1">[药品]</span>}</span><div className="flex items-center gap-2"><span className="text-[#888] scale-90">{item.type === 'consumable' ? `回+${item.heal}` : item.atk > 0 ? `+${item.atk}攻` : `+${item.hp}血`}</span>{!isEquipped && <button onClick={(e) => handleSell(e, item, idx)} className="bg-[#5d4d3d] text-[#d6d3cd] px-1 rounded text-[9px] hover:bg-[#b91c1c]">[售]</button>}</div></div>);})}</div></div>
+                    </div>
+
+                    {/* 中间 */}
+                    <div className="flex-1 flex flex-col relative bg-[#f4f0e6] shadow-inner">
+                         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E")`}}></div>
+                         {gameState === 'RESTING' && <div className="absolute inset-0 bg-[#2a303c]/60 z-10 pointer-events-none backdrop-grayscale-[0.5] transition-all duration-1000"></div>}
+                         <div className="absolute top-8 w-full text-center z-10"><div className="inline-block border-2 border-[#8b2e2e] text-[#8b2e2e] px-6 py-2 font-serif font-bold text-xl tracking-widest bg-[#f4f0e6]/80 shadow-sm transform -rotate-1 rounded-sm relative"><div className="absolute inset-0 border border-[#8b2e2e] m-1 pointer-events-none"></div>{STORY_CONFIGS[player.id]?.[stage]?.title || `第 ${stage} 局`}</div></div>
+                         <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+                             <div className="absolute bottom-1/4 w-3/4 h-[1px] bg-[#4a3b32]/20"></div>
+                             {/* Player */}
+                             <div className="absolute left-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={playerRef}>
+                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#4a3b32] bg-[#f4f0e6] border border-[#a89f91] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm">{player.name} <span className="text-[#b45309] text-xs">Lv.{player.level}</span></div>
+                                 {partnerActive && currentPartner && (<div ref={partnerRef} className="absolute left-[-80px] bottom-0 w-24 h-32 md:w-32 md:h-40 transition-all duration-500" style={{zIndex: 5}}><PaperStickman color={currentPartner.color} equipment={{}} charVisual={currentPartner.visual}/></div>)}
+                                 <div className="w-24 h-32 md:w-32 md:h-40 relative transform -rotate-2 origin-bottom transition-all duration-500 hover:scale-105"><PaperStickman color="#2d2d2d" slots={player.slots} isSleeping={gameState === 'RESTING'} charVisual={player.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div>
+                                 {floatingTexts.filter(t => t.target === 'player').map(t => (<div key={t.id} className={`absolute -top-20 left-1/2 -translate-x-1/2 font-bold animate-float-up pointer-events-none whitespace-nowrap font-serif ${t.type==='success'?'text-[#15803d] text-3xl drop-shadow-sm':'text-[#b91c1c] text-3xl drop-shadow-sm'}`}>{t.value}</div>))}
+                             </div>
+                             {gameState === 'BATTLE' && (<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl font-black text-[#8b2e2e]/10 pointer-events-none select-none font-serif">{player.id === 'xie_huaian' ? '谋' : '剑'}</div>)}
+                             {/* Enemy */}
+                             {gameState !== 'MENU' && gameState !== 'RESTING' && (<div className="absolute right-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={enemyRef}><div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#f4f0e6] bg-[#2a231d] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm border border-[#4a3b32]">{enemy.name}</div><div className={`w-24 h-32 md:w-32 md:h-40 relative transform rotate-2 origin-bottom transition-all duration-500 ${enemy.isBoss ? 'scale-125' : ''}`}><PaperStickman color="#3e2323" isEnemy={true} charVisual={enemy.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div><div className="absolute -bottom-6 w-full h-1.5 bg-[#d6d3cd] rounded-full overflow-hidden border border-[#a89f91]"><div className="h-full bg-[#b91c1c]" style={{width: `${(enemy.currentHp / enemy.maxHp) * 100}%`}}></div></div>{floatingTexts.filter(t => t.target === 'enemy').map(t => (<div key={t.id} className={`absolute -top-20 left-1/2 -translate-x-1/2 font-bold pointer-events-none animate-float-up whitespace-nowrap font-serif ${t.type === 'crit' ? 'text-5xl text-[#d97706] drop-shadow-md' : 'text-3xl text-[#1f2937]'}`}>{t.value}</div>))}</div>)}
+                         </div>
+                         {/* Bottom Logs */}
+                         <div className="h-32 bg-[#e6ded5] border-t-2 border-[#d6d3cd] p-3 font-serif text-sm relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] flex justify-between"><div className="flex-1 overflow-y-auto custom-scrollbar">{logs.map(log => (<div key={log.id} className={`mb-1 ${log.type==='damage'?'text-[#991b1b]':log.type==='loot'?'text-[#7e22ce] font-bold':log.type==='error'?'text-red-700 font-bold':log.type==='success'?'text-[#15803d] font-bold':'text-[#57534e]'}`}>{log.text}</div>))}<div ref={logsEndRef} /></div><div className="ml-4 flex gap-3 items-center"><button onClick={() => updatePlayer(prev => { const newVal = !stateRef.current.isAutoBattle; setIsAutoBattle(newVal); return prev; })} className={`w-12 h-12 rounded-full border-2 shadow-md flex items-center justify-center transition-all ${isAutoBattle ? 'bg-[#15803d] border-[#166534] text-white' : 'bg-[#a8a29e] border-[#57534e] text-white'}`} title={isAutoBattle ? "切换为手动" : "切换为自动"}>{isAutoBattle ? <Zap size={20} /> : <MousePointer size={20} />}</button><span className="text-[10px] text-[#57534e] mt-1 font-bold">{isAutoBattle ? "自动中" : "手动"}</span>{!isAutoBattle && gameState === 'BATTLE' && (<button onClick={manualAttack} className="w-14 h-14 rounded-full bg-[#b91c1c] border-4 border-[#7f1d1d] shadow-lg flex flex-col items-center justify-center text-white hover:scale-110 active:scale-95 transition-all animate-pulse"><Sword size={24} /><span className="text-[10px] font-bold">出招</span></button>)}<button onClick={() => setShowMap(true)} className="w-12 h-12 rounded-full bg-[#57534e] border-2 border-[#a89f91] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Map size={18} /><span className="text-[9px] font-bold">舆图</span></button><button onClick={() => openShop()} className="w-12 h-12 rounded-full bg-[#3e2323] border-2 border-[#8b2e2e] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Store size={18} /><span className="text-[9px] font-bold">鬼市</span></button><button onClick={openPartnerSelect} disabled={partnerCooldownTimer > 0 || !player.partnerUnlocked || gameState !== 'BATTLE'} className={`w-12 h-12 rounded-full border-2 shadow-lg flex flex-col items-center justify-center relative overflow-hidden transition-all ${!player.partnerUnlocked ? 'bg-gray-400 border-gray-500 opacity-50 cursor-not-allowed' : partnerCooldownTimer > 0 ? 'bg-gray-300 border-gray-400 cursor-wait' : 'bg-[#d4af37] border-[#b45309] hover:scale-110 active:scale-95 cursor-pointer'}`}>{partnerCooldownTimer > 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[10px] font-bold z-10">{Math.ceil(partnerCooldownTimer)}</div>}<Users size={18} className={player.partnerUnlocked ? "text-[#3e2323]" : "text-gray-600"} /><span className="text-[9px] text-[#57534e] mt-0.5 font-bold">{!player.partnerUnlocked ? "未识" : "助战"}</span></button></div></div>
+                    </div>
+
+                    {/* Right Side */}
+                    <div className="w-full md:w-72 bg-[#fdfbf7] border-l-4 border-[#d6d3cd] flex flex-col shadow-xl z-20 relative">
+                        <div className="p-4 bg-[#f4f0e6] border-b border-[#e5e7eb] font-bold text-[#8b2e2e] flex items-center justify-center gap-2 font-serif text-lg tracking-widest relative"><div className="absolute left-4 opacity-50"><MessageCircle size={18} /></div>{player.id === 'xie_huaian' ? '长安密语' : '江湖传闻'}</div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#fdfbf7]" style={{backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}>{chats.map(chat => { const isPlayer = chat.speaker === 'Player'; return (<div key={chat.id} className={`flex flex-col ${isPlayer ? 'items-end' : 'items-start'} animate-pop-in group`}><span className="text-[10px] text-[#a89f91] mb-1 px-1">{isPlayer ? player.name : enemy.name}</span><div className={`relative max-w-[90%] px-4 py-3 text-sm shadow-sm border ${isPlayer ? 'bg-white border-[#d6d3cd] text-[#4a3b32] rounded-l-xl rounded-br-sm rounded-tr-xl' : 'bg-[#2a231d] border-[#4a3b32] text-[#e6dcca] rounded-r-xl rounded-bl-sm rounded-tl-xl'}`}>{chat.text}</div></div>); })}<div ref={chatsEndRef} /></div>
+                    </div>
+
+                    {/* Modals */}
+                    {showStats && (<div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm"><div className="bg-[#2a231d] p-0 rounded-sm border-4 border-[#8b2e2e] w-[90%] max-w-xl shadow-2xl relative text-[#e6dcca] flex overflow-hidden"><button onClick={() => setShowStats(false)} className="absolute top-4 right-4 text-[#888] hover:text-white z-10"><X size={24}/></button><div className="w-1/2 bg-[#3e342b] p-6 flex flex-col items-center justify-center border-r border-[#5d4d3d]"><div className="w-48 h-64 relative"><PaperStickman color="#2d2d2d" slots={player.slots} charVisual={player.visual} /></div><h2 className="text-2xl font-bold font-serif text-[#fbbf24] mt-4">{charData.name}</h2><p className="text-xs text-[#a89f91]">真名：{charData.realName}</p><p className="text-xs text-[#888] mt-2 italic text-center px-4">"{charData.desc}"</p></div><div className="w-1/2 p-6 flex flex-col bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')]"><h3 className="text-lg font-bold text-[#d4af37] mb-4 flex items-center gap-2 border-b border-[#5d4d3d] pb-2"><Shield size={18} /> 属性详情</h3><div className="space-y-3 text-sm mb-6"><div className="flex justify-between border-b border-[#5d4d3d]/30 pb-1"><span className="text-[#a89f91]">等级</span><span className="text-[#e6dcca] font-bold">Lv.{player.level}</span></div><div className="flex justify-between border-b border-[#5d4d3d]/30 pb-1"><span className="text-[#a89f91]">生命值</span><span className="text-[#10b981] font-bold">{Math.floor(player.currentHp)} / {stats.maxHp}</span></div><div className="flex justify-between border-b border-[#5d4d3d]/30 pb-1"><span className="text-[#a89f91]">武/智</span><span className="text-[#ef4444] font-bold">{stats.atk} <span className="text-[10px] text-[#888] font-normal">({player.baseAtk} + {stats.bonusAtk})</span></span></div><div className="flex justify-between border-b border-[#5d4d3d]/30 pb-1"><span className="text-[#a89f91]">洞察</span><span className="text-[#f97316] font-bold">{stats.crit}% <span className="text-[10px] text-[#888] font-normal">({player.baseCrit} + {stats.bonusCrit})</span></span></div><div className="flex justify-between border-b border-[#5d4d3d]/30 pb-1"><span className="text-[#a89f91]">阅历</span><span className="text-[#d4af37] font-bold">{player.exp} / {player.maxExp}</span></div></div><div className="mt-auto"><div className="border-2 border-dashed border-[#5d4d3d] bg-[#1a1612] p-4 rounded flex items-center justify-between opacity-60 cursor-not-allowed group relative"><div className="flex items-center gap-3"><Award size={24} className="text-[#888]" /><div><div className="font-bold text-[#888]">成就系统</div><div className="text-[10px] text-[#555]">记录你的江湖传说</div></div></div><Lock size={18} className="text-[#888]" /><div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded hidden group-hover:block whitespace-nowrap">开发中，敬请期待</div></div></div></div></div></div>)}
+
+                    {showShop && (<div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm"><div className="bg-[#2a231d] p-6 rounded-sm border-4 border-[#8b2e2e] w-[90%] max-w-2xl max-h-[80vh] flex flex-col shadow-2xl relative text-[#e6dcca]"><button onClick={() => setShowShop(false)} className="absolute top-4 right-4 text-[#888] hover:text-white"><X size={24}/></button><div className="text-center mb-6 border-b border-[#5d4d3d] pb-4"><h2 className="text-3xl font-bold font-serif text-[#d4af37] tracking-[0.5em]">鬼市</h2><div className="flex justify-center items-center gap-2 mt-1 text-[#fbbf24] font-mono bg-[#1e1915] rounded px-3 py-1 w-fit mx-auto border border-[#5d4d3d]"><Clock size={14}/> 下一次进货: {Math.floor(Math.max(0, shopState.nextRefresh - Date.now()) / 3600000)}时 {Math.floor((Math.max(0, shopState.nextRefresh - Date.now()) % 3600000) / 60000)}分</div><div className="mt-2 text-[#fbbf24] font-bold flex items-center justify-center gap-2"><Coins size={16}/> 余额: {player.money} 两</div><div className="mt-2"><button onClick={() => refreshShop(player.id, true)} className="text-[10px] text-[#a89f91] hover:text-white underline">花50两打点关系 (刷新)</button></div></div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 overflow-y-auto custom-scrollbar p-2">{shopState.items.map((item) => (<div key={item.id} className="bg-[#1e1915] p-3 rounded border border-[#3e342b] flex flex-col justify-between hover:border-[#d4af37] transition-all"><div><div className={`font-bold ${item.rarity===2?'text-[#eebbcb]':'text-[#d6d3cd]'}`}>{item.name}</div><div className="text-[10px] text-[#888] my-1">{item.desc}</div><div className="text-xs text-[#a89f91]">{item.type === 'consumable' ? `回+${item.heal}` : <>{item.atk>0?`攻+${item.atk} `:''}{item.hp>0?`血+${item.hp} `:''}{item.crit?`暴+${item.crit}%`:''}</>}</div></div><button onClick={() => handleBuy(item)} className="mt-3 w-full bg-[#3e342b] hover:bg-[#8b2e2e] text-[#d6d3cd] py-1 rounded text-xs border border-[#5d4d3d] flex justify-between px-3 items-center"><span>购买</span><span className="text-[#fbbf24]">{item.price} 两</span></button></div>))}</div></div></div>)}
+
+                    {showPartnerSelect && (<div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm"><div className="bg-[#2a231d] p-6 rounded-sm border-4 border-[#b45309] w-[90%] max-w-lg shadow-2xl relative text-[#e6dcca]"><button onClick={() => setShowPartnerSelect(false)} className="absolute top-4 right-4 text-[#888] hover:text-white"><X size={24}/></button><div className="text-center mb-6 border-b border-[#5d4d3d] pb-4"><h2 className="text-2xl font-bold font-serif text-[#d4af37] tracking-[0.3em]">江湖豪杰</h2><p className="text-[#a89f91] text-xs mt-1">择一知己，共赴生死</p></div><div className="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar p-1">{currentPartnerList.map((p) => { const isUnlocked = unlockedPartners.includes(p.id); return (<div key={p.id} className={`p-4 rounded border flex justify-between items-center transition-all ${isUnlocked ? 'bg-[#1e1915] border-[#3e342b] hover:border-[#d4af37]' : 'bg-[#1a1612] border-[#292524] opacity-60'}`}><div className="flex gap-4 items-center"><div className="w-12 h-12 rounded-full border-2 border-[#5d4d3d] bg-[#2a231d] flex items-center justify-center overflow-hidden"><div className="scale-[0.4] origin-center translate-y-2"><PaperStickman charVisual={p.visual} color={p.color} /></div></div><div><div className="font-bold text-[#e6dcca]">{p.name} <span className="text-xs text-[#a89f91] font-normal">[{p.title}]</span></div><div className="text-[10px] text-[#888] mt-1">{p.desc}</div></div></div>{isUnlocked ? <button onClick={() => summonSelectedPartner(p)} className="bg-[#b45309] hover:bg-[#92400e] text-white px-4 py-2 rounded text-sm font-bold border border-[#fcd34d] shadow-sm active:scale-95">出战</button> : <div className="text-xs text-[#555] bg-[#0c0a09] px-3 py-1 rounded">Lv.{p.unlockLevel} 解锁</div>}</div>); })}</div></div></div>)}
+
+                    {showMap && (<div className="absolute inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm"><div className="bg-[#e6dcca] p-6 rounded-sm border-8 border-[#3e2323] w-[90%] max-w-2xl shadow-2xl relative text-[#3e2323] flex flex-col items-center"><button onClick={() => setShowMap(false)} className="absolute top-4 right-4 text-[#888] hover:text-[#b91c1c] z-10"><X size={24}/></button><h2 className="text-3xl font-bold font-serif text-[#8b2e2e] tracking-[0.5em] mb-2">{player.id === 'xie_huaian' ? '长安舆图' : '江湖行路'}</h2><div className="grid grid-cols-5 gap-4 w-full p-4">{Object.entries(STORY_CONFIGS[player.id] || STORY_CONFIGS['xie_huaian']).map(([lvl, config]) => { const levelNum = parseInt(lvl); const isUnlocked = levelNum <= maxUnlockedStage; const isCurrent = levelNum === stage; return (<button key={lvl} onClick={() => isUnlocked ? selectStage(levelNum) : null} disabled={!isUnlocked} className={`aspect-square rounded flex flex-col items-center justify-center border-2 transition-all relative ${isUnlocked ? 'bg-[#f4f0e6] border-[#8b2e2e] hover:bg-[#fed7aa] cursor-pointer shadow-md' : 'bg-[#a8a29e] border-[#57534e] cursor-not-allowed opacity-50 grayscale'} ${isCurrent ? 'ring-4 ring-[#d4af37]' : ''}`}><div className="font-bold text-lg font-serif">{lvl}</div><div className="text-[10px] text-center leading-tight px-1 mt-1">{config.title}</div>{config.boss && <div className="absolute top-1 right-1 text-[#b91c1c]"><Skull size={12}/></div>}</button>); })}</div></div></div>)}
+                    
+                    {gameState === 'RESTING' && (<div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"><div className="bg-[#2a231d] p-8 rounded-lg shadow-2xl pointer-events-auto text-center border-4 border-[#5d4d3d] text-[#e6dcca] w-80 relative overflow-hidden"><Moon size={48} className="mx-auto mb-4 text-[#fbbf24] animate-pulse relative z-10" /><h2 className="text-2xl font-bold mb-2 font-serif relative z-10">重伤避险中...</h2><div className="text-4xl font-mono mb-4 text-[#fbbf24] relative z-10">{Math.floor(restTime / 60)}:{String(restTime % 60).padStart(2, '0')}</div><div className="w-full bg-[#1c1917] h-3 rounded-full mb-2 overflow-hidden border border-[#444] relative z-10"><div className="bg-[#15803d] h-full transition-all duration-1000" style={{width: `${(player.currentHp / stats.maxHp) * 100}%`}}></div></div><div className="text-xs text-[#a89f91] mb-6 relative z-10">静待时机: {Math.floor(player.currentHp)}/{stats.maxHp}</div><div className="flex gap-2"><button onClick={instantRevive} className="flex-1 bg-[#d4af37] hover:bg-[#b45309] text-[#2a231d] font-bold py-2 rounded text-xs border border-[#fcd34d]"><Zap size={14} className="inline mr-1"/> 立即复活</button><button onClick={() => { setShowMap(true); }} className="flex-1 bg-[#57534e] hover:bg-[#44403c] text-white font-bold py-2 rounded text-xs border border-[#a89f91]"><Map size={14} className="inline mr-1"/> 撤至舆图</button></div></div></div>)}
+
+                    {gameState === 'VICTORY' && (<div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none"><div className="bg-[#fef3c7] border-4 border-[#b45309] p-8 rounded-sm shadow-xl pointer-events-auto animate-bounce-in flex flex-col items-center transform rotate-1"><Trophy size={56} className="text-[#d97706] mb-3 drop-shadow-md" /><h2 className="text-3xl font-bold mb-4 font-serif text-[#92400e] tracking-widest">胜天半子</h2><div className="w-full h-px bg-[#b45309]/30 mb-4"></div><div className="text-sm text-[#a89f91] mb-4 animate-pulse">2秒后自动进入下一局...</div><button onClick={nextStage} className="bg-[#b45309] text-[#fffbeb] px-8 py-2 rounded-sm font-bold hover:bg-[#92400e] border-2 border-[#fcd34d] shadow-md active:translate-y-1 transition-all font-serif text-lg pointer-events-auto">下一局 (立即)</button></div></div>)}
+                    
+                    {gameState === 'GAME_COMPLETED' && (<div className="absolute inset-0 bg-[#1c1917]/90 z-50 flex items-center justify-center backdrop-blur-sm"><div className="bg-[#f4f0e6] p-12 rounded-sm border-8 border-[#2a231d] shadow-2xl text-center max-w-lg w-full transform rotate-1 relative animate-pop-in"><Trophy size={64} className="mx-auto mb-6 text-[#d97706]" /><h1 className="text-5xl font-black mb-4 text-[#2a231d] tracking-widest font-serif" style={{textShadow: '2px 2px 0px rgba(0,0,0,0.1)'}}>局终人散</h1><p className="text-[#78716c] mb-8 font-serif italic text-xl">— 纸上江湖 · 完 —</p><div className="bg-[#e6ded5] p-6 rounded-sm border border-[#d6d3cd] text-center text-sm mb-8 font-serif leading-loose text-[#444]"><p>恩怨情仇，皆随风去。</p><p>江湖路远，有缘再会。</p><p className="text-lg font-bold text-[#8b2e2e] mt-4">后续剧情 · 正在开发中</p></div><button onClick={() => { setGameState('LOGIN'); }} className="w-full bg-[#3e342b] text-[#f4f0e6] py-3 rounded-sm font-bold hover:bg-[#2a231d] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 border-2 border-[#a8a29e] shadow-lg text-lg font-serif">返回首页</button></div></div>)}
+                </div>
+             );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(React.createElement(PaperDuel));
+    </script>
+</body>
+</html>
