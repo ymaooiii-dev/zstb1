@@ -12,7 +12,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        /* 使用 100dvh 适配移动端动态地址栏 */
         body { margin: 0; overflow: hidden; background-color: #2a231d; touch-action: manipulation; height: 100dvh; }
         #root { height: 100%; }
         
@@ -31,9 +30,22 @@
         .animate-shake { animation: shake 0.3s ease-in-out; }
         @keyframes pop-in { 0% { opacity: 0; transform: scale(0.8) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
         .animate-pop-in { animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes bounce-sm { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .animate-bounce-sm { animation: bounce-sm 0.5s infinite; }
+        @keyframes emote-bounce { 
+            0% { transform: translate(-50%, 0) scale(0.0); opacity: 0; } 
+            20% { transform: translate(-50%, -40px) scale(1.5); opacity: 1; } 
+            30% { transform: translate(-50%, -30px) scale(1.2); } 
+            40% { transform: translate(-50%, -40px) scale(1.3); } 
+            50% { transform: translate(-50%, -35px) scale(1.2); }
+            80% { transform: translate(-50%, -35px) scale(1.2); opacity: 1; }
+            100% { transform: translate(-50%, -100px) scale(0.5); opacity: 0; } 
+        }
+        .animate-emote { animation: emote-bounce 3s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fade-in 1s ease-out forwards; }
     </style>
     
-    <!-- Import Map -->
     <script type="importmap">
         {
             "imports": {
@@ -50,113 +62,112 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
         import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
-        import { Sword, ShoppingBag, Play, Trophy, MessageCircle, Moon, Clock, Zap, Star, Shield, Skull, BookOpen, Wind, Scroll, Feather, Briefcase, User, PenTool, Users, UserPlus, Coins, X, Store, MousePointer, Power, ChevronRight, Lock, Award, Info, Heart, Map, Coffee, KeyRound, Pill, Leaf, Menu } from 'https://esm.sh/lucide-react@0.263.1';
+        import { Sword, ShoppingBag, Play, Trophy, MessageCircle, Moon, Clock, Zap, Star, Shield, Skull, BookOpen, Wind, Scroll, Feather, Briefcase, User, PenTool, Users, UserPlus, Coins, X, Store, MousePointer, Power, ChevronRight, Lock, Award, Info, Heart, Map, Coffee, KeyRound, Pill, Leaf, Menu, Smile, Settings, Plus, Trash2, Edit3, Save, Image as ImageIcon, Cloud, Loader2, Link } from 'https://esm.sh/lucide-react@0.263.1';
+        
+        // --- Firebase Imports ---
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, onSnapshot, collection } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-        // --- 常量 ---
+        // ==========================================
+        //  【部署说明】：将您的 Firebase 配置替换掉下方的 null
+        // ==========================================
+        const MANUALLY_PASTE_FIREBASE_CONFIG_HERE ={
+  apiKey: "AIzaSyAsR-raXlcfcl4cypSR0lucwa8WZ8NB3-U",
+  authDomain: "zsjh-4cd72.firebaseapp.com",
+  projectId: "zsjh-4cd72",
+  storageBucket: "zsjh-4cd72.firebasestorage.app",
+  messagingSenderId: "159277988582",
+  appId: "1:159277988582:web:1024db59f3eebe21549927"
+}; 
+        
+        // --- 1. 全局配置与常量 ---
         const REST_DURATION = 60; 
         const PARTNER_UNLOCK_LEVEL = 3; 
         const PARTNER_COOLDOWN_BASE = 150; 
         const PARTNER_DURATION = 60000; 
-        const INVITE_CODES = ["517", "520", "1314", "qiqi", "guoguo"]; 
-        const SAVE_KEY = "paper_duel_save_v2"; 
+        const INVITE_CODES = ["517", "520", "1314", "qiqi", "guoguo", "admin"]; 
+        const SAVE_KEY = "paper_duel_save_v3"; 
+        const CONFIG_SAVE_KEY = "paper_duel_config_v1";
+        const FIREBASE_CONFIG_KEY = "paper_duel_firebase_config";
+        
+        const CRIT_IMAGE_URL = "./baoji.png"; 
+        const FALLBACK_IMAGE_URL = "https://ui-avatars.com/api/?name=表情&background=b91c1c&color=fff&size=128&rounded=true&bold=true";
 
-        // --- 配置数据 ---
-        const STORY_CONFIGS = {
-          'xie_huaian': {
-            1: { enemyName: "钦差大臣", title: "初入长安", hpScale: 1.5, atkScale: 1.2 },
-            2: { enemyName: "好友周墨", title: "旧友重逢", hpScale: 2.0, atkScale: 1.5 },
-            3: { enemyName: "王校尉", title: "暗流涌动", hpScale: 2.5, atkScale: 1.8 },
-            4: { enemyName: "萧文敬", title: "笑面虎", hpScale: 3.5, atkScale: 2.2 },
-            5: { enemyName: "萧武阳", title: "第一局·终", boss: true, hpScale: 10.0, atkScale: 5.0 },
-            6: { enemyName: "虎贲暗卫", title: "逐个击破", hpScale: 5.0, atkScale: 3.0 },
-            7: { enemyName: "蒲逆川", title: "鬼面复仇", hpScale: 6.0, atkScale: 3.5 },
-            8: { enemyName: "虎贲暗卫", title: "重重包围", hpScale: 7.0, atkScale: 4.0 },
-            9: { enemyName: "青衣", title: "青衣素裹", hpScale: 9.0, atkScale: 5.0 },
-            10: { enemyName: "刘子言", title: "第二局·终", boss: true, hpScale: 20.0, atkScale: 10.0 },
-          },
-          'li_lianhua': {
-            1: { enemyName: "江湖郎中", title: "东海之滨", hpScale: 1.5, atkScale: 1.2 },
-            2: { enemyName: "风火堂恶霸", title: "初露锋芒", hpScale: 2.0, atkScale: 1.5 },
-            3: { enemyName: "朴锄山尸", title: "诡案迷踪", hpScale: 2.5, atkScale: 1.8 },
-            4: { enemyName: "妙手空空", title: "故人相见", hpScale: 3.5, atkScale: 2.2 },
-            5: { enemyName: "笛飞声(影)", title: "宿命之敌", boss: true, hpScale: 10.0, atkScale: 5.0 },
-            6: { enemyName: "金鸳盟众", title: "百川归海", hpScale: 5.0, atkScale: 3.0 },
-            7: { enemyName: "万圣道死士", title: "阴谋浮现", hpScale: 6.0, atkScale: 3.5 },
-            8: { enemyName: "角丽谯", title: "红衣妖女", hpScale: 7.0, atkScale: 4.0 },
-            9: { enemyName: "封磬", title: "血海深仇", hpScale: 9.0, atkScale: 5.0 },
-            10: { enemyName: "单孤刀", title: "师门恩怨", boss: true, hpScale: 20.0, atkScale: 10.0 },
-          }
+        // --- Firebase Initialization (Global Scope) ---
+        let app, auth, db, appId;
+        
+        const initFirebase = (config) => {
+            try {
+                if (!config) return false;
+                app = initializeApp(config);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                appId = config.appId || 'default-app-id'; 
+                console.log("Firebase initialized successfully");
+                return true;
+            } catch (e) {
+                console.error("Firebase initialization error:", e);
+                return false;
+            }
         };
 
-        const SKILLS_DB = {
-          'xie_huaian': {
-            1: { id: 'jiedao', name: "借刀杀人", desc: "借力打力，受击时反弹 30% 伤害", type: "passive_reflect" },
-            3: { id: 'diaohu', name: "调虎离山", desc: "身法诡谲，闪避率提升 15%", type: "passive_dodge" },
-            6: { id: 'fudi', name: "釜底抽薪", desc: "攻心为上，攻击削减敌人攻击力", type: "passive_debuff" },
-            9: { id: 'jinchan', name: "金蝉脱壳", desc: "致命一击时免死并回血 (每场一次)", type: "passive_resurrect" },
-            12: { id: 'lianhuan', name: "连环计", desc: "计计相扣，40% 几率追加谋略伤害", type: "passive_double" },
-            15: { id: 'manutian', name: "瞒天过海", desc: "终极布局，敌人血量<40% 直接斩杀", type: "passive_execute" }
-          },
-          'li_lianhua': {
-            1: { id: 'yangzhouman', name: "扬州慢", desc: "至纯内功，暴击时恢复 15 点生命", type: "passive_heal" },
-            3: { id: 'posuobu', name: "婆娑步", desc: "独门轻功，闪避率提升 15%", type: "passive_dodge" },
-            6: { id: 'xiangyi', name: "相夷太剑", desc: "天下最快，攻击有 30% 几率二连击", type: "passive_double" },
-            9: { id: 'bi_cha', name: "碧茶压制", desc: "以毒攻毒，生命越低攻击越高", type: "passive_low_hp" },
-            12: { id: 'xiaolou', name: "小楼东风", desc: "绝世剑招，暴击伤害提升 50%", type: "passive_crit_dmg" },
-            15: { id: 'mingyue', name: "明月西海", desc: "剑意浩瀚，普攻附加真实伤害", type: "passive_true_dmg" }
-          }
+        // 优先级：1. 代码硬编码 (部署用) -> 2. 环境注入 (Canvas用) -> 3. 本地缓存 (调试用)
+        let firebaseConfig = null;
+        
+        if (MANUALLY_PASTE_FIREBASE_CONFIG_HERE) {
+            firebaseConfig = MANUALLY_PASTE_FIREBASE_CONFIG_HERE;
+        } else if (typeof __firebase_config !== 'undefined') {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } else {
+            const localConfig = localStorage.getItem(FIREBASE_CONFIG_KEY);
+            if (localConfig) {
+                try {
+                    firebaseConfig = JSON.parse(localConfig);
+                } catch(e) { console.error("Invalid local firebase config"); }
+            }
+        }
+        
+        if (firebaseConfig) {
+            initFirebase(firebaseConfig);
+        } else {
+            console.warn("No Firebase config found. Running in offline mode.");
+        }
+
+        // --- 默认配置 (云端无数据时使用) ---
+        const DEFAULT_EMOTE_DB = {
+            defaults: {
+                attack: ["⚔️", "👊", "💥", "😤"],
+                hit: ["😵", "🤕", "💦", "💔"],
+                dodge: ["👻", "💨", "😎"],
+                crit: ["⚡", "🌟", "☠️"],
+                skill: ["📜", "✨", "🌊"],
+                win: ["✌️", "👑", "🎉"],
+                lose: ["🏳️", "💀", "🥀"]
+            },
+            players: {
+                'xie_huaian': {
+                    attack: ["✒️", "📖", "♟️", "算无遗策"],
+                    crit: ["./baoji.png", "⚡️破局！"], 
+                    hit: ["咳咳...", "失算了", "🛡️"],
+                    win: ["☕️", "承让", "收官"]
+                },
+                'li_lianhua': {
+                    attack: ["🗡️", "🍃", "婆娑步"],
+                    crit: ["./baoji.png", "剑神再世!"],
+                    hit: ["毒发了...", "哎哟", "💊"],
+                    win: ["去去重去去", "🐶", "🍶"]
+                }
+            },
+            enemies: {
+                '钦差大臣': { attack: ["官威!", "拿下!"], hit: ["大胆刁民!", "😰"], lose: ["我还会回来的..."] },
+                '角丽谯': { attack: ["💋", "🩸", "尊上~"], hit: ["你怎么敢!", "💔"], win: ["男人都该死"] },
+                '单孤刀': { attack: ["天下是我的!", "师弟!"], win: ["我赢了!"] },
+                '不良人': { attack: ["奉命行事", "🔪"], hit: ["点子扎手!"] }
+            }
         };
 
-        const PARTNERS_DB = {
-          'xie_huaian': [
-            { id: 'ye_zheng', name: "叶铮", title: "孤傲剑客", unlockLevel: 3, desc: "一剑光寒，生死无悔", visual: 'ye_zheng', skillName: "绝尘剑", skillDesc: "极高伤害，冷却时间翻倍", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE * 2, color: "#18181b" },
-            { id: 'zhang_mo', name: "张默", title: "原萧文敬", unlockLevel: 4, desc: "改头换面，以斧证道", visual: 'zhang_mo', skillName: "开山斧", skillDesc: "势大力沉的劈砍", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#52525b" },
-            { id: 'pu_nichuan', name: "蒲逆川", title: "鬼面人", unlockLevel: 7, desc: "恩怨分明，不死不休", visual: 'pu_nichuan', skillName: "血祭", skillDesc: "燃烧生命，疯狂攻击", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#7f1d1d" },
-            { id: 'bai_wan', name: "白皖", title: "神秘人", unlockLevel: 8, desc: "来去无踪，亦正亦邪", visual: 'bai_wan', skillName: "迷踪", skillDesc: "协助攻击，干扰敌人", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#e5e7eb" }
-          ],
-          'li_lianhua': [
-            { id: 'fang_duobing', name: "方多病", title: "天机堂少主", unlockLevel: 3, desc: "多愁公子，机关百变", visual: 'fang_duobing', skillName: "尔雅剑", skillDesc: "造成伤害并提供护盾", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#3b82f6" },
-            { id: 'di_feisheng', name: "笛飞声", title: "金鸳盟主", unlockLevel: 6, desc: "悲风白杨，唯快不破", visual: 'di_feisheng', skillName: "悲风白杨", skillDesc: "造成800%暴击伤害，无视防御", duration: 45000, cooldown: PARTNER_COOLDOWN_BASE * 1.5, color: "#b91c1c" }
-          ]
-        };
-
-        const CHARACTERS_DATA = [
-          { id: 'xie_huaian', name: "谢淮安", realName: "刘知", desc: "白发谋士，步步为营。", baseHp: 120, baseAtk: 12, baseCrit: 20, visual: 'xie_huaian', themeColor: '#2a231d' },
-          { id: 'li_lianhua', name: "李莲花", realName: "李相夷", desc: "神秘神医，昔日剑神。", baseHp: 140, baseAtk: 15, baseCrit: 10, visual: 'li_lianhua', themeColor: '#064e3b' }
-        ];
-
-        const EQUIPMENT_POOLS = {
-          'xie_huaian': [
-            { name: "削梨小刀", type: "weapon", visual: "knife", atk: 12, hp: 0, rarity: 1, price: 50, desc: "随身携带，锋利异常" },
-            { name: "旧铁锹", type: "weapon", visual: "shovel", atk: 45, hp: 50, rarity: 2, price: 500, desc: "传说中的神兵，管杀管埋" },
-            { name: "狼毫笔", type: "weapon", visual: "brush", atk: 10, hp: 0, rarity: 1, price: 40, desc: "笔锋如刀，杀人无形" },
-            { name: "精钢伞骨", type: "weapon", visual: "umbrella_rib", atk: 15, hp: 0, crit: 5, rarity: 1, price: 100, desc: "从油纸伞中抽出的利器" },
-            { name: "二十四计手札", type: "weapon", visual: "scroll", atk: 25, hp: 20, crit: 10, rarity: 2, price: 300, desc: "记载着绝世计谋" },
-            { name: "素麻衣", type: "clothes", visual: "robe_gray", atk: 0, hp: 50, rarity: 1, price: 50, desc: "粗布麻衣，掩人耳目" },
-            { name: "鹤氅", type: "clothes", visual: "robe_white", atk: 2, hp: 80, rarity: 2, price: 200, desc: "名士之风，超凡脱俗" },
-            { name: "护腕", type: "guard", visual: "bracer", atk: 1, hp: 30, rarity: 1, price: 60, desc: "藏在袖中的皮质护腕" },
-            { name: "平安扣", type: "guard", visual: "jade", atk: 0, hp: 40, rarity: 1, price: 80, desc: "并不保平安的旧物" },
-            { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "止血生肌，回复80点生命" },
-            { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" },
-            { name: "断木剑", type: "weapon", visual: "stick", atk: 3, hp: 0, rarity: 1, price: 10, desc: "小孩子过家家的玩具" },
-            { name: "石子", type: "weapon", visual: "stone", atk: 5, hp: 0, rarity: 1, price: 5, desc: "路边随处可见的石头" }
-          ],
-          'li_lianhua': [
-            { name: "少师剑", type: "weapon", visual: "sword_shaoshi", atk: 35, hp: 0, crit: 10, rarity: 2, price: 600, desc: "昔日剑神佩剑" },
-            { name: "刎颈软剑", type: "weapon", visual: "sword_wenjing", atk: 30, hp: 0, crit: 15, rarity: 2, price: 500, desc: "柔韧至极，防不胜防" },
-            { name: "青钢剑", type: "weapon", visual: "sword", atk: 15, hp: 0, rarity: 1, price: 80, desc: "江湖常见的兵器" },
-            { name: "一袋糖", type: "guard", visual: "candy", atk: 0, hp: 50, rarity: 1, price: 30, desc: "心情不好时吃一颗" },
-            { name: "狐狸精项圈", type: "guard", visual: "collar", atk: 5, hp: 60, rarity: 1, price: 120, desc: "狗也是很凶的" },
-            { name: "游医布袍", type: "clothes", visual: "robe_green", atk: 0, hp: 80, rarity: 1, price: 100, desc: "虽然旧了点，但很干净" },
-            { name: "莲花玉佩", type: "guard", visual: "jade_lotus", atk: 2, hp: 40, rarity: 1, price: 150, desc: "温润养人" },
-            { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "止血生肌，回复80点生命" },
-            { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" },
-            { name: "生锈剪刀", type: "weapon", visual: "scissors", atk: 5, hp: 0, rarity: 1, price: 10, desc: "用来剪药材的" },
-            { name: "草鞋", type: "guard", visual: "shoes", atk: 0, hp: 10, rarity: 1, price: 5, desc: "走两步就磨破了" }
-          ]
-        };
-
-        const STORY_DIALOGUES = {
+        const DEFAULT_STORY_DIALOGUES = {
           "钦差大臣": [ "谢大人，这账本好像不对啊。", "官场如戏，全靠演技。" ],
           "好友周墨": [ "淮安，收手吧。", "为了一个真相，值得吗？" ],
           "王校尉": [ "奉命行事，别怪兄弟。", "虎贲营的刀，可不长眼！" ],
@@ -173,239 +184,242 @@
           "笛飞声(影)": ["李相夷，出剑！", "太慢了！"],
           "default": [ "拿命来！", "休想逃！", "中计了！", "可恶..." ]
         };
-
+        
         const DIALOGUES = {
-          player: {
-            attack: ["此局已定。", "你输了。", "去去重去去，来来来来来。", "这招如何？", "铁锹...是用来埋你的。", "今日宜解签，大吉。"],
-            hit: ["咳咳...无妨。", "这点代价...值得。", "碧茶之毒又犯了...", "还在计算之中。", "哎哟，轻点！"],
-            win: ["清理干净。", "下一个。", "长安的雪，又红了几分。", "不过是弃子。", "承让。"]
-          },
-          enemy: {
-            intro: ["受死吧！"],
-            attack: ["拿命来！"],
-            hit: ["可恶..."]
-          }
+            player: {
+                attack: ["此局已定。", "你输了。", "去去重去去。", "这招如何？", "铁锹...是用来埋你的。", "今日宜解签，大吉。"],
+                hit: ["咳咳...无妨。", "这点代价...值得。", "碧茶之毒又犯了...", "还在计算之中。", "哎哟，轻点！"],
+                win: ["清理干净。", "下一个。", "长安的雪，又红了几分。", "不过是弃子。", "承让。"]
+            }
         };
 
+        // --- 2. 纯函数 ---
         const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-        const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        const randomItem = (arr) => arr && arr.length > 0 ? arr[Math.floor(Math.random() * arr.length)] : "";
+        const isImageUrl = (str) => typeof str === 'string' && (str.startsWith('./') || str.startsWith('http') || str.startsWith('data:image'));
+        
+        const getPlayerStats = (p) => {
+            let bonusAtk = 0; let bonusHp = 0; let bonusCrit = 0;
+            if(p.slots) { Object.values(p.slots).forEach(item => { if (item) { bonusAtk += (item.atk || 0); bonusHp += (item.hp || 0); bonusCrit += (item.crit || 0); } }); }
+            if (p.skills && p.skills.some(s => s.type === 'passive_crit_buff')) bonusCrit += 20; 
+            const baseHp = p.baseHp || 100; const baseAtk = p.baseAtk || 10; const baseCrit = p.baseCrit || 0;
+            return { maxHp: baseHp + bonusHp + (p.level - 1) * 15, atk: baseAtk + bonusAtk + (p.level - 1) * 2, crit: baseCrit + bonusCrit, bonusAtk, bonusHp, bonusCrit };
+        };
 
-        // --- SVG 纸片人组件 ---
-        const PaperStickman = ({ color = "black", isEnemy = false, slots = {}, isSleeping = false, charVisual = 'hero' }) => {
+        // --- 3. 游戏静态数据 ---
+        const MINION_DB = { 'xie_huaian': ["更夫", "地痞", "巡逻卫兵", "王府家丁", "不良人", "蒙面刀客", "大理寺役"], 'li_lianhua': ["采药童子", "野狗帮众", "路边乞丐", "风火堂弟子", "金鸳盟探子", "万圣道死士", "无名剑客"] };
+        const STORY_CONFIGS = {
+          'xie_huaian': { 1: { enemyName: "钦差大臣", title: "第一章·初入长安", hpScale: 1.5, atkScale: 1.2 }, 2: { enemyName: "好友周墨", title: "第二章·旧友重逢", hpScale: 2.0, atkScale: 1.5 }, 3: { enemyName: "王校尉", title: "第三章·暗流涌动", hpScale: 2.5, atkScale: 1.8 }, 4: { enemyName: "萧文敬", title: "第四章·笑面虎", hpScale: 3.5, atkScale: 2.2 }, 5: { enemyName: "萧武阳", title: "第五章·第一局·终", boss: true, hpScale: 10.0, atkScale: 5.0 }, 6: { enemyName: "虎贲暗卫", title: "第六章·逐个击破", hpScale: 5.0, atkScale: 3.0 }, 7: { enemyName: "蒲逆川", title: "第七章·鬼面复仇", hpScale: 6.0, atkScale: 3.5 }, 8: { enemyName: "虎贲暗卫", title: "第八章·重重包围", hpScale: 7.0, atkScale: 4.0 }, 9: { enemyName: "青衣", title: "第九章·青衣素裹", hpScale: 9.0, atkScale: 5.0 }, 10: { enemyName: "刘子言", title: "第十章·第二局·终", boss: true, hpScale: 20.0, atkScale: 10.0 }, },
+          'li_lianhua': { 1: { enemyName: "江湖郎中", title: "第一章·东海之滨", hpScale: 1.5, atkScale: 1.2 }, 2: { enemyName: "风火堂恶霸", title: "第二章·初露锋芒", hpScale: 2.0, atkScale: 1.5 }, 3: { enemyName: "朴锄山尸", title: "第三章·诡案迷踪", hpScale: 2.5, atkScale: 1.8 }, 4: { enemyName: "妙手空空", title: "第四章·故人相见", hpScale: 3.5, atkScale: 2.2 }, 5: { enemyName: "笛飞声(影)", title: "第五章·宿命之敌", boss: true, hpScale: 10.0, atkScale: 5.0 }, 6: { enemyName: "金鸳盟众", title: "第六章·百川归海", hpScale: 5.0, atkScale: 3.0 }, 7: { enemyName: "万圣道死士", title: "第七章·阴谋浮现", hpScale: 6.0, atkScale: 3.5 }, 8: { enemyName: "角丽谯", title: "第八章·红衣妖女", hpScale: 7.0, atkScale: 4.0 }, 9: { enemyName: "封磬", title: "第九章·血海深仇", hpScale: 9.0, atkScale: 5.0 }, 10: { enemyName: "单孤刀", title: "第十章·师门恩怨", boss: true, hpScale: 20.0, atkScale: 10.0 }, }
+        };
+        const SKILLS_DB = { 'xie_huaian': { 1: { id: 'jiedao', name: "借刀杀人", desc: "借力打力，反弹30%伤害", type: "passive_reflect" }, 3: { id: 'diaohu', name: "调虎离山", desc: "闪避率提升15%", type: "passive_dodge" }, 6: { id: 'fudi', name: "釜底抽薪", desc: "攻击削减敌人攻击力", type: "passive_debuff" }, 9: { id: 'jinchan', name: "金蝉脱壳", desc: "致命免死并回血", type: "passive_resurrect" }, 12: { id: 'lianhuan', name: "连环计", desc: "40%几率追加伤害", type: "passive_double" }, 15: { id: 'manutian', name: "瞒天过海", desc: "敌人<40%血斩杀", type: "passive_execute" } }, 'li_lianhua': { 1: { id: 'yangzhouman', name: "扬州慢", desc: "暴击回复生命", type: "passive_heal" }, 3: { id: 'posuobu', name: "婆娑步", desc: "闪避率提升15%", type: "passive_dodge" }, 6: { id: 'xiangyi', name: "相夷太剑", desc: "30%几率二连击", type: "passive_double" }, 9: { id: 'bi_cha', name: "碧茶压制", desc: "血越低攻越高", type: "passive_low_hp" }, 12: { id: 'xiaolou', name: "小楼东风", desc: "爆伤提升50%", type: "passive_crit_dmg" }, 15: { id: 'mingyue', name: "明月西海", desc: "附加真实伤害", type: "passive_true_dmg" } } };
+        const PARTNERS_DB = { 'xie_huaian': [ { id: 'ye_zheng', name: "叶铮", title: "孤傲剑客", unlockLevel: 3, desc: "一剑光寒", visual: 'ye_zheng', skillName: "绝尘剑", skillDesc: "极高伤害", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE * 2, color: "#18181b" }, { id: 'zhang_mo', name: "张默", title: "原萧文敬", unlockLevel: 4, desc: "以斧证道", visual: 'zhang_mo', skillName: "开山斧", skillDesc: "强力劈砍", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#52525b" }, { id: 'pu_nichuan', name: "蒲逆川", title: "鬼面人", unlockLevel: 7, desc: "不死不休", visual: 'pu_nichuan', skillName: "血祭", skillDesc: "疯狂攻击", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#7f1d1d" }, { id: 'bai_wan', name: "白皖", title: "神秘人", unlockLevel: 8, desc: "来去无踪", visual: 'bai_wan', skillName: "迷踪", skillDesc: "协助攻击，干扰敌人", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#e5e7eb" } ], 'li_lianhua': [ { id: 'fang_duobing', name: "方多病", title: "天机堂少主", unlockLevel: 3, desc: "机关百变", visual: 'fang_duobing', skillName: "尔雅剑", skillDesc: "伤害+护盾", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE, color: "#3b82f6" }, { id: 'di_feisheng', name: "笛飞声", title: "金鸳盟主", unlockLevel: 6, desc: "悲风白杨", skillDesc: "无视防御爆伤", duration: 45000, cooldown: PARTNER_COOLDOWN_BASE * 1.5, color: "#b91c1c" } ] };
+        const CHARACTERS_DATA = [ { id: 'xie_huaian', name: "谢淮安", realName: "刘知", desc: "白发谋士，步步为营。", baseHp: 120, baseAtk: 12, baseCrit: 20, visual: 'xie_huaian', themeColor: '#2a231d' }, { id: 'li_lianhua', name: "李莲花", realName: "李相夷", desc: "神秘神医，昔日剑神。", baseHp: 140, baseAtk: 15, baseCrit: 10, visual: 'li_lianhua', themeColor: '#064e3b' } ];
+        const EQUIPMENT_POOLS = { 
+            'xie_huaian': [ 
+                { name: "削梨小刀", type: "weapon", visual: "knife", atk: 12, hp: 0, rarity: 1, price: 50, desc: "锋利异常" }, 
+                { name: "旧铁锹", type: "weapon", visual: "shovel", atk: 45, hp: 50, rarity: 2, price: 500, desc: "管杀管埋" }, 
+                { name: "狼毫笔", type: "weapon", visual: "brush", atk: 10, hp: 0, rarity: 1, price: 40, desc: "杀人无形" }, 
+                { name: "精钢伞骨", type: "weapon", visual: "umbrella_rib", atk: 15, hp: 0, crit: 5, rarity: 1, price: 100, desc: "暗藏利器" }, 
+                { name: "二十四计手札", type: "weapon", visual: "scroll", atk: 25, hp: 20, crit: 10, rarity: 2, price: 300, desc: "记载着绝世计谋" }, 
+                { name: "素麻衣", type: "clothes", visual: "robe_gray", atk: 0, hp: 50, rarity: 1, price: 50, desc: "掩人耳目" }, 
+                { name: "鹤氅", type: "clothes", visual: "robe_white", atk: 2, hp: 80, rarity: 2, price: 200, desc: "名士之风" }, 
+                { name: "护腕", type: "guard", visual: "bracer", atk: 1, hp: 30, rarity: 1, price: 60, desc: "皮质护腕" }, 
+                { name: "平安扣", type: "guard", visual: "jade", atk: 0, hp: 40, rarity: 1, price: 80, desc: "旧物" }, 
+                { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "回血80" }, 
+                { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "解毒回血" }, 
+                { name: "断木剑", type: "weapon", visual: "stick", atk: 3, hp: 0, rarity: 1, price: 10, desc: "玩具" }, 
+                { name: "石子", type: "weapon", visual: "stone", atk: 5, hp: 0, rarity: 1, price: 5, desc: "路边的" } 
+            ], 
+            'li_lianhua': [ 
+                { name: "少师剑", type: "weapon", visual: "sword_shaoshi", atk: 35, hp: 0, crit: 10, rarity: 2, price: 600, desc: "剑神佩剑" }, 
+                { name: "刎颈软剑", type: "weapon", visual: "sword_wenjing", atk: 30, hp: 0, crit: 15, rarity: 2, price: 500, desc: "防不胜防" }, 
+                { name: "青钢剑", type: "weapon", visual: "sword", atk: 15, hp: 0, rarity: 1, price: 80, desc: "江湖常见的兵器" }, 
+                { name: "一袋糖", type: "guard", visual: "candy", atk: 0, hp: 50, rarity: 1, price: 30, desc: "心情好" }, 
+                { name: "狐狸精项圈", type: "guard", visual: "collar", atk: 5, hp: 60, rarity: 1, price: 120, desc: "狗也是很凶的" }, 
+                { name: "游医布袍", type: "clothes", visual: "robe_green", atk: 0, hp: 80, rarity: 1, price: 100, desc: "干净旧衣" }, 
+                { name: "莲花玉佩", type: "guard", visual: "jade_lotus", atk: 2, hp: 40, rarity: 1, price: 150, desc: "温润" }, 
+                { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "回血80" }, 
+                { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" }, 
+                { name: "生锈剪刀", type: "weapon", visual: "scissors", atk: 5, hp: 0, rarity: 1, price: 10, desc: "剪药材" }, 
+                { name: "草鞋", type: "guard", visual: "shoes", atk: 0, hp: 10, rarity: 1, price: 5, desc: "走两步就磨破了" } 
+            ] 
+        };
+
+        // --- 4. 组件定义 ---
+        
+        // SVG 纸片人组件
+        const PaperStickman = ({ color = "black", isEnemy = false, slots = {}, isSleeping = false, charVisual = 'hero', emote = null }) => {
           const weapon = slots.weapon?.visual;
           const clothes = slots.clothes?.visual;
           const guard = slots.guard?.visual;
           
           return (
-            <svg viewBox="0 0 100 150" className={`w-full h-full drop-shadow-md overflow-visible transition-transform duration-500 ${isSleeping ? 'rotate-90 translate-y-10' : ''}`}>
-              <g stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                {isEnemy ? (
-                  // --- 敌人外观 ---
-                  <>
-                     {charVisual === '青衣' || charVisual === '角丽谯' ? (
-                        <g stroke="none">
-                            <path d="M30 45 L70 45 L80 125 L20 125 Z" fill={charVisual==='角丽谯'?'#b91c1c':'#d1fae5'} stroke="#333" strokeWidth="1.5" />
-                            <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
-                            <path d="M30 20 L50 40 L70 20 L50 0 Z" fill="#333" /> 
-                            <path d="M20 20 Q50 60 80 20" fill="none" stroke="#333" strokeWidth="10" opacity="0.8" /> 
-                        </g>
-                     ) : (
-                        <>
-                           <path d="M50 30 L30 60 L70 60 Z" fill="#333" fillOpacity="0.2" />
-                           <path d="M50 30 L50 90 L30 140 M50 90 L70 140 M30 60 L70 60" />
-                           <circle cx="50" cy="30" r="15" fill={charVisual === '蒲逆川' ? '#7f1d1d' : '#333'} />
-                           <path d="M40 25 L60 25" stroke="gold" strokeWidth="2" />
-                           <circle cx="42" cy="30" r="2" fill="red" stroke="none" />
-                           <circle cx="58" cy="30" r="2" fill="red" stroke="none" />
-                           <line x1="20" y1="40" x2="80" y2="30" stroke="#555" strokeWidth="3" />
-                        </>
-                     )}
-                  </>
-                ) : (
-                  <g stroke="none">
-                    {/* 伙伴与玩家形象 */}
-                    {charVisual === 'ye_zheng' ? (
-                      <g>
-                         <path d="M30 45 L70 45 L75 120 L25 120 Z" fill="#18181b" stroke="#52525b" strokeWidth="1.5" /> 
-                         <path d="M20 25 L80 25 L50 10 Z" fill="#3f3f46" stroke="#000" /> {/* 斗笠 */}
-                         <circle cx="50" cy="35" r="12" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
-                         <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#27272a" /> 
-                         <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#27272a" />
-                         <g transform="translate(85, 80) rotate(-60)">
-                             <rect x="-2" y="-10" width="4" height="60" fill="#e4e4e7" stroke="#000" />
-                         </g>
-                      </g>
-                    ) : charVisual === 'zhang_mo' ? (
-                      <g>
-                         <path d="M25 45 L75 45 L80 120 L20 120 Z" fill="#78716c" stroke="#44403c" strokeWidth="1.5" /> 
-                         <circle cx="50" cy="28" r="15" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
-                         <path d="M35 15 Q50 5 65 15" fill="#44403c" />
-                         <path d="M25 50 Q15 60 15 85" stroke="#333" strokeWidth="1" fill="#a8a29e" /> 
-                         <path d="M75 50 Q85 60 85 85" stroke="#333" strokeWidth="1" fill="#a8a29e" />
-                         {/* 斧头 */}
-                         <g transform="translate(85, 85) rotate(-20)">
-                             <rect x="-2" y="-10" width="4" height="40" fill="#573a2e" />
-                             <path d="M-2 5 L-10 0 L-10 20 L-2 15 Z" fill="#9ca3af" stroke="#000" />
-                         </g>
-                      </g>
-                    ) : charVisual === 'pu_nichuan' ? (
-                      <g>
-                         <path d="M30 45 L70 45 L80 120 L20 120 Z" fill="#450a0a" stroke="#b91c1c" strokeWidth="1.5" /> 
-                         <circle cx="50" cy="28" r="14" fill="#991b1b" stroke="#000" strokeWidth="1.5" /> {/* 面具底色 */}
-                         <circle cx="44" cy="28" r="3" fill="#000" /> {/* 眼洞 */}
-                         <circle cx="56" cy="28" r="3" fill="#000" />
-                         <path d="M45 38 Q50 30 55 38" stroke="#fff" strokeWidth="2" fill="none" /> {/* 獠牙 */}
-                         <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" /> 
-                         <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" />
-                      </g>
-                    ) : charVisual === 'bai_wan' ? (
-                      <g>
-                         <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#fff" stroke="#e5e7eb" strokeWidth="1.5" /> 
-                         <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
-                         <path d="M36 20 Q50 5 64 20" fill="none" stroke="#333" strokeWidth="2" />
-                         <path d="M35 50 Q20 60 20 85" stroke="#e5e7eb" strokeWidth="1" fill="#fff" />
-                         <path d="M65 50 Q80 60 80 85" stroke="#e5e7eb" strokeWidth="1" fill="#fff" />
-                      </g>
-                    ) : charVisual === 'li_lianhua' ? (
-                      <g>
-                         <path d="M30 45 L70 45 L80 120 L20 120 Z" fill={clothes==='robe_green'?'#f0fdf4':'#ecfdf5'} stroke="#065f46" strokeWidth="1.5" /> 
-                         <circle cx="50" cy="30" r="18" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
-                         <path d="M32 25 Q35 12 50 12 Q65 12 68 25 Q68 18 50 18 Q32 18 32 25" fill="#2d2d2d" />
-                         <rect x="40" y="8" width="20" height="4" fill="#10b981" rx="2" />
-                         <circle cx="44" cy="30" r="2" fill="#333" />
-                         <circle cx="56" cy="30" r="2" fill="#333" />
-                         <path d="M48 36 Q50 38 52 36" stroke="#333" strokeWidth="1" fill="none" />
-                         <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#d1fae5" /> 
-                         <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#d1fae5" />
-                         
-                         {/* 装备渲染 (李莲花) */}
-                         {weapon === 'sword_shaoshi' && (
-                           <g transform="translate(85, 95) rotate(-45)">
-                               <rect x="-3" y="-15" width="6" height="50" fill="#e2e8f0" stroke="#1e293b" strokeWidth="0.5" />
-                               <path d="M0 36 Q5 45 0 55" stroke="blue" strokeWidth="1.5" fill="none" />
-                           </g>
-                         )}
-                         {weapon === 'sword_wenjing' && (
-                          <g transform="translate(85, 95) rotate(-30)">
-                             <path d="M0 30 Q-10 10 0 -10 Q10 10 0 30" fill="#cbd5e1" stroke="#334155" strokeWidth="0.5" />
-                             <rect x="-5" y="25" width="10" height="3" fill="#b91c1c" stroke="#333" strokeWidth="0.5" />
-                          </g>
-                         )}
-                         {guard === 'candy' && (
-                            <circle cx="35" cy="80" r="4" fill="#f472b6" stroke="#db2777" />
-                         )}
-                      </g>
-                    ) : (
-                      // 默认：谢淮安 (素衣书生)
-                      <g>
-                        {/* 1. 衣服层 */}
-                        {clothes === 'robe_white' ? (
-                           <path d="M35 45 L65 45 L80 125 L20 125 Z" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" /> 
-                        ) : clothes === 'robe_gray' ? (
-                           <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#a8a29e" stroke="#57534e" strokeWidth="1.5" /> 
-                        ) : (
-                           <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#e0f2fe" stroke="#334155" strokeWidth="1.5" /> 
-                        )}
-                        <path d="M35 45 L50 75 L65 45" fill="none" stroke="#333" strokeWidth="1" />
-                        
-                        {/* 2. 头部 */}
-                        <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
-                        <path d="M36 20 Q50 10 64 20 Q64 35 60 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
-                        <path d="M36 20 Q30 35 32 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
-                        <path d="M36 20 Q50 5 64 20 Q64 15 50 12 Q36 15 36 20" fill="#d1d5db" />
-                        <circle cx="50" cy="15" r="5" fill="#d1d5db" />
-                        <line x1="42" y1="15" x2="58" y2="15" stroke="#9ca3af" strokeWidth="1" />
-
-                        {/* 五官 */}
-                        <path d="M44 29 L48 28" stroke="#333" strokeWidth="1" /> 
-                        <path d="M56 28 L52 29" stroke="#333" strokeWidth="1" />
-                        <circle cx="45" cy="31" r="1.5" fill="#333" />
-                        <circle cx="55" cy="31" r="1.5" fill="#333" />
-                        <path d="M48 37 L52 37" stroke="#333" strokeWidth="1" /> 
-
-                        {/* 手臂 */}
-                        <path d="M35 50 Q20 60 20 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
-                        <path d="M35 60 Q30 70 30 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
-                        <circle cx="25" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" /> 
-
-                        <path d="M65 50 Q80 60 80 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
-                        <path d="M65 60 Q70 70 70 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
-                        <circle cx="75" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" />
-
-                        <circle cx="35" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
-                        <circle cx="65" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
-
-                        {/* 装备渲染 (谢淮安) */}
-                        {weapon === 'knife' && (
-                          <g transform="translate(80, 85) rotate(150)">
-                             <rect x="-2" y="0" width="4" height="15" fill="#9ca3af" stroke="#333" strokeWidth="0.5" />
-                             <path d="M-2 15 L2 15 L0 25 Z" fill="#9ca3af" stroke="#333" strokeWidth="0.5" />
-                             <rect x="-3" y="-5" width="6" height="5" fill="#78350f" />
-                          </g>
-                        )}
-                        {/* 传说铁锹: 更大，更华丽 */}
-                        {weapon === 'shovel' && (
-                          <g transform="translate(85, 95) rotate(-10)">
-                             <rect x="-1.5" y="-45" width="3" height="60" fill="#3e2723" stroke="#000" strokeWidth="0.5" /> 
-                             <path d="M-8 15 L8 15 L8 35 Q0 38 -8 35 Z" fill="#64748b" stroke="#000" strokeWidth="0.5" /> 
-                             <circle cx="0" cy="20" r="2" fill="red" /> {/* 传说标记 */}
-                          </g>
-                        )}
-                        {weapon === 'brush' && (
-                          <g transform="translate(80, 85) rotate(-30)">
-                             <rect x="-1.5" y="-20" width="3" height="30" fill="#3f2c22" stroke="#000" strokeWidth="0.5" />
-                             <path d="M-2 10 Q0 20 2 10 Z" fill="#333" />
-                          </g>
-                        )}
-                        {weapon === 'umbrella_rib' && (
-                          <g transform="translate(80, 85) rotate(-45)">
-                             <rect x="-0.5" y="-10" width="1" height="45" fill="#d1d5db" stroke="#333" strokeWidth="0.5" />
-                             <path d="M-1 35 L1 35 L0 45 Z" fill="#d1d5db" /> 
-                          </g>
-                        )}
-                        {weapon === 'scroll' && (
-                          <g transform="translate(25, 85) rotate(10)">
-                             <rect x="-5" y="-10" width="10" height="25" fill="#fef3c7" stroke="#b45309" strokeWidth="1" />
-                             <line x1="-3" y1="-5" x2="3" y2="-5" stroke="#b45309" strokeWidth="0.5" />
-                          </g>
-                        )}
-                        {/* 普通装备 */}
-                        {weapon === 'stick' && (
-                           <rect x="80" y="70" width="4" height="40" fill="#a16207" transform="rotate(-30 82 90)" />
-                        )}
-                        {guard === 'shoes' && (
+            <div className="relative w-full h-full">
+                {emote && (
+                    <div className="absolute -top-32 left-1/2 -translate-x-1/2 z-20 animate-emote pointer-events-none">
+                        <div className="bg-white p-1 rounded-lg border-2 border-black shadow-lg flex items-center justify-center min-w-[50px] min-h-[50px]">
+                           {/* 优先显示图片，如果没有图片则显示文字 */}
+                           {isImageUrl(emote.content) ? (
+                               <img 
+                                 src={emote.content} 
+                                 alt="emote" 
+                                 className="w-16 h-16 object-contain" 
+                                 onError={(e) => { e.target.onerror=null; e.target.src=FALLBACK_IMAGE_URL; }}
+                               />
+                           ) : <span className="text-3xl p-1">{emote.content}</span>}
+                           {/* 气泡小三角 */}
+                           <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-b-2 border-r-2 border-black transform rotate-45"></div>
+                        </div>
+                    </div>
+                )}
+                <svg viewBox="0 0 100 150" className={`w-full h-full drop-shadow-md overflow-visible transition-transform duration-500 ${isSleeping ? 'rotate-90 translate-y-10' : ''}`}>
+                  <g stroke={color} strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    {isEnemy ? (
+                      <>
+                         {charVisual === '青衣' || charVisual === '角丽谯' ? (
+                            <g stroke="none">
+                                <path d="M30 45 L70 45 L80 125 L20 125 Z" fill={charVisual==='角丽谯'?'#b91c1c':'#d1fae5'} stroke="#333" strokeWidth="1.5" />
+                                <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                                <path d="M30 20 L50 40 L70 20 L50 0 Z" fill="#333" /> 
+                                <path d="M20 20 Q50 60 80 20" fill="none" stroke="#333" strokeWidth="10" opacity="0.8" /> 
+                            </g>
+                         ) : (
                             <>
-                             <rect x="36" y="125" width="12" height="5" fill="#fcd34d" />
-                             <rect x="54" y="125" width="12" height="5" fill="#fcd34d" />
+                               <path d="M50 30 L30 60 L70 60 Z" fill="#333" fillOpacity="0.2" />
+                               <path d="M50 30 L50 90 L30 140 M50 90 L70 140 M30 60 L70 60" />
+                               <circle cx="50" cy="30" r="15" fill={charVisual === '蒲逆川' ? '#7f1d1d' : '#333'} />
+                               <path d="M40 25 L60 25" stroke="gold" strokeWidth="2" />
+                               <circle cx="42" cy="30" r="2" fill="red" stroke="none" />
+                               <circle cx="58" cy="30" r="2" fill="red" stroke="none" />
+                               <line x1="20" y1="40" x2="80" y2="30" stroke="#555" strokeWidth="3" />
                             </>
+                         )}
+                      </>
+                    ) : (
+                      <g stroke="none">
+                        {charVisual === 'ye_zheng' ? (
+                          <g>
+                             <path d="M30 45 L70 45 L75 120 L25 120 Z" fill="#18181b" stroke="#52525b" strokeWidth="1.5" /> 
+                             <path d="M20 25 L80 25 L50 10 Z" fill="#3f3f46" stroke="#000" />
+                             <circle cx="50" cy="35" r="12" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                             <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#27272a" /> 
+                             <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#27272a" />
+                             <g transform="translate(85, 80) rotate(-60)"><rect x="-2" y="-10" width="4" height="60" fill="#e4e4e7" stroke="#000" /></g>
+                          </g>
+                        ) : charVisual === 'zhang_mo' ? (
+                          <g>
+                             <path d="M25 45 L75 45 L80 120 L20 120 Z" fill="#78716c" stroke="#44403c" strokeWidth="1.5" /> 
+                             <circle cx="50" cy="28" r="15" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                             <path d="M35 15 Q50 5 65 15" fill="#44403c" />
+                             <path d="M25 50 Q15 60 15 85" stroke="#333" strokeWidth="1" fill="#a8a29e" /> 
+                             <path d="M75 50 Q85 60 85 85" stroke="#333" strokeWidth="1" fill="#a8a29e" />
+                             <g transform="translate(85, 85) rotate(-20)"><rect x="-2" y="-10" width="4" height="40" fill="#573a2e" /><path d="M-2 5 L-10 0 L-10 20 L-2 15 Z" fill="#9ca3af" stroke="#000" /></g>
+                          </g>
+                        ) : charVisual === 'pu_nichuan' ? (
+                          <g>
+                             <path d="M30 45 L70 45 L80 120 L20 120 Z" fill="#450a0a" stroke="#b91c1c" strokeWidth="1.5" /> 
+                             <circle cx="50" cy="28" r="14" fill="#991b1b" stroke="#000" strokeWidth="1.5" />
+                             <circle cx="44" cy="28" r="3" fill="#000" /> <circle cx="56" cy="28" r="3" fill="#000" />
+                             <path d="M45 38 Q50 30 55 38" stroke="#fff" strokeWidth="2" fill="none" />
+                             <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" /> 
+                             <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#7f1d1d" />
+                          </g>
+                        ) : charVisual === 'bai_wan' ? (
+                          <g>
+                             <path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#fff" stroke="#e5e7eb" strokeWidth="1.5" /> 
+                             <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                             <path d="M36 20 Q50 5 64 20" fill="none" stroke="#333" strokeWidth="2" />
+                             <path d="M35 50 Q20 60 20 85" stroke="#e5e7eb" strokeWidth="1" fill="#fff" />
+                             <path d="M65 50 Q80 60 80 85" stroke="#e5e7eb" strokeWidth="1" fill="#fff" />
+                          </g>
+                        ) : charVisual === 'li_lianhua' ? (
+                          <g>
+                             <path d="M30 45 L70 45 L80 120 L20 120 Z" fill={clothes==='robe_green'?'#f0fdf4':'#ecfdf5'} stroke="#065f46" strokeWidth="1.5" /> 
+                             <circle cx="50" cy="30" r="18" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                             <path d="M32 25 Q35 12 50 12 Q65 12 68 25 Q68 18 50 18 Q32 18 32 25" fill="#2d2d2d" />
+                             <rect x="40" y="8" width="20" height="4" fill="#10b981" rx="2" />
+                             <circle cx="44" cy="30" r="2" fill="#333" />
+                             <circle cx="56" cy="30" r="2" fill="#333" />
+                             <path d="M48 36 Q50 38 52 36" stroke="#333" strokeWidth="1" fill="none" />
+                             <path d="M30 50 Q15 65 10 90" stroke="#333" strokeWidth="1" fill="#d1fae5" /> 
+                             <path d="M70 50 Q85 65 90 90" stroke="#333" strokeWidth="1" fill="#d1fae5" />
+                             {weapon === 'sword_shaoshi' && (<g transform="translate(85, 95) rotate(-45)"><rect x="-3" y="-15" width="6" height="50" fill="#e2e8f0" stroke="#1e293b" strokeWidth="0.5" /><path d="M0 36 Q5 45 0 55" stroke="blue" strokeWidth="1.5" fill="none" /></g>)}
+                             {weapon === 'sword_wenjing' && (<g transform="translate(85, 95) rotate(-30)"><path d="M0 30 Q-10 10 0 -10 Q10 10 0 30" fill="#cbd5e1" stroke="#334155" strokeWidth="0.5" /><rect x="-5" y="25" width="10" height="3" fill="#b91c1c" stroke="#333" strokeWidth="0.5" /></g>)}
+                             {guard === 'candy' && (<circle cx="35" cy="80" r="4" fill="#f472b6" stroke="#db2777" />)}
+                          </g>
+                        ) : (
+                          <g>
+                            {clothes === 'robe_white' ? (<path d="M35 45 L65 45 L80 125 L20 125 Z" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.5" />) : clothes === 'robe_gray' ? (<path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#a8a29e" stroke="#57534e" strokeWidth="1.5" />) : (<path d="M35 45 L65 45 L75 125 L25 125 Z" fill="#e0f2fe" stroke="#334155" strokeWidth="1.5" />)}
+                            <path d="M35 45 L50 75 L65 45" fill="none" stroke="#333" strokeWidth="1" />
+                            <circle cx="50" cy="28" r="14" fill="#fce4d4" stroke="#333" strokeWidth="1.5" />
+                            <path d="M36 20 Q50 10 64 20 Q64 35 60 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
+                            <path d="M36 20 Q30 35 32 45" stroke="#d1d5db" strokeWidth="3" fill="none" />
+                            <path d="M36 20 Q50 5 64 20 Q64 15 50 12 Q36 15 36 20" fill="#d1d5db" />
+                            <circle cx="50" cy="15" r="5" fill="#d1d5db" />
+                            <line x1="42" y1="15" x2="58" y2="15" stroke="#9ca3af" strokeWidth="1" />
+                            <path d="M44 29 L48 28" stroke="#333" strokeWidth="1" /> 
+                            <path d="M56 28 L52 29" stroke="#333" strokeWidth="1" />
+                            <circle cx="45" cy="31" r="1.5" fill="#333" />
+                            <circle cx="55" cy="31" r="1.5" fill="#333" />
+                            <path d="M48 37 L52 37" stroke="#333" strokeWidth="1" /> 
+                            <path d="M35 50 Q20 60 20 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                            <path d="M35 60 Q30 70 30 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                            <circle cx="25" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" /> 
+                            <path d="M65 50 Q80 60 80 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                            <path d="M65 60 Q70 70 70 85" stroke="#333" strokeWidth="1" fill={clothes==='robe_gray'?'#a8a29e':clothes==='robe_white'?'#f8fafc':'#bfdbfe'} />
+                            <circle cx="75" cy="90" r="3" fill="#fce4d4" stroke="#333" strokeWidth="1" />
+                            <circle cx="35" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+                            <circle cx="65" cy="50" r="1.5" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+                            {weapon === 'knife' && (<g transform="translate(80, 85) rotate(150)"><rect x="-2" y="0" width="4" height="15" fill="#9ca3af" stroke="#333" strokeWidth="0.5" /><path d="M-2 15 L2 15 L0 25 Z" fill="#9ca3af" stroke="#333" strokeWidth="0.5" /><rect x="-3" y="-5" width="6" height="5" fill="#78350f" /></g>)}
+                            {weapon === 'shovel' && (<g transform="translate(85, 95) rotate(-10)"><rect x="-1.5" y="-45" width="3" height="60" fill="#3e2723" stroke="#000" strokeWidth="0.5" /><path d="M-8 15 L8 15 L8 35 Q0 38 -8 35 Z" fill="#64748b" stroke="#000" strokeWidth="0.5" /><circle cx="0" cy="20" r="2" fill="red" /></g>)}
+                            {weapon === 'brush' && (<g transform="translate(80, 85) rotate(-30)"><rect x="-1.5" y="-20" width="3" height="30" fill="#3f2c22" stroke="#000" strokeWidth="0.5" /><path d="M-2 10 Q0 20 2 10 Z" fill="#333" /></g>)}
+                            {weapon === 'umbrella_rib' && (<g transform="translate(80, 85) rotate(-45)"><rect x="-0.5" y="-10" width="1" height="45" fill="#d1d5db" stroke="#333" strokeWidth="0.5" /><path d="M-1 35 L1 35 L0 45 Z" fill="#d1d5db" /></g>)}
+                            {weapon === 'scroll' && (<g transform="translate(25, 85) rotate(10)"><rect x="-5" y="-10" width="10" height="25" fill="#fef3c7" stroke="#b45309" strokeWidth="1" /><line x1="-3" y1="-5" x2="3" y2="-5" stroke="#b45309" strokeWidth="0.5" /></g>)}
+                            {weapon === 'stick' && (<rect x="80" y="70" width="4" height="40" fill="#a16207" transform="rotate(-30 82 90)" />)}
+                            {guard === 'shoes' && (<><rect x="36" y="125" width="12" height="5" fill="#fcd34d" /><rect x="54" y="125" width="12" height="5" fill="#fcd34d" /></>)}
+                            {guard === 'bracer' && (<rect x="20" y="75" width="10" height="8" fill="#573a2e" opacity="0.8" transform="rotate(-10 25 79)" />)}
+                            {guard === 'jade' && (<circle cx="35" cy="75" r="3" fill="#86efac" stroke="#166534" strokeWidth="1" />)}
+                          </g>
                         )}
-                        {guard === 'bracer' && (
-                           <rect x="20" y="75" width="10" height="8" fill="#573a2e" opacity="0.8" transform="rotate(-10 25 79)" />
-                        )}
-                        {guard === 'jade' && (
-                           <circle cx="35" cy="75" r="3" fill="#86efac" stroke="#166534" strokeWidth="1" />
+                        {isSleeping && (
+                           <g className="animate-pulse opacity-70">
+                              <text x="65" y="15" fontSize="14" fill="blue" stroke="none">...</text>
+                           </g>
                         )}
                       </g>
-                    )}
-                    
-                    {isSleeping && (
-                       <g className="animate-pulse opacity-70">
-                          <text x="65" y="15" fontSize="14" fill="blue" stroke="none">...</text>
-                       </g>
                     )}
                   </g>
-                )}
-              </g>
-            </svg>
+                </svg>
+            </div>
           );
         };
 
         // --- 主组件 ---
         const PaperDuel = () => {
+             // 1. 先进行所有的 useState
              const [gameState, setGameState] = useState('LOGIN'); 
              const [inputCode, setInputCode] = useState('');
              const [loginError, setLoginError] = useState('');
+             const [currentUser, setCurrentUser] = useState(null); 
              
+             // 自定义配置状态
+             const [customConfig, setCustomConfig] = useState({
+                 dialogues: DEFAULT_STORY_DIALOGUES,
+                 emotes: DEFAULT_EMOTE_DB
+             });
+             const [showAdmin, setShowAdmin] = useState(false);
+             const [adminTab, setAdminTab] = useState('DIALOGUES');
+             const [editingKey, setEditingKey] = useState(null); 
+             const [newItemInput, setNewItemInput] = useState('');
+             const [firebaseConfigInput, setFirebaseConfigInput] = useState(''); 
+             
+             // Admin Emote States
+             const [emoteCategory, setEmoteCategory] = useState('defaults');
+             const [emoteKey, setEmoteKey] = useState(null);
+             const [emoteType, setEmoteType] = useState('attack');
+             const [newEmoteInput, setNewEmoteInput] = useState('');
+
              // --- 状态管理 Ref ---
              const stateRef = useRef({
                 player: null,
@@ -423,15 +437,12 @@
                 maxUnlockedStage: 1, 
                 unlockedPartners: [],
                 processingVictory: false,
-                shop: { items: [], nextRefresh: 0 } 
+                shop: { items: [], nextRefresh: 0 },
+                config: { dialogues: DEFAULT_STORY_DIALOGUES, emotes: DEFAULT_EMOTE_DB } 
              });
-
-             const loadSavedData = () => {
-                 try {
-                     const saved = localStorage.getItem(SAVE_KEY);
-                     return saved ? JSON.parse(saved) : null;
-                 } catch (e) { return null; }
-             };
+             
+             const [playerEmote, setPlayerEmote] = useState(null);
+             const [enemyEmote, setEnemyEmote] = useState(null);
 
              const [player, setPlayer] = useState({
                 id: 'xie_huaian', name: "未命名", baseHp: 100, currentHp: 100, baseAtk: 10, baseCrit: 20,
@@ -440,7 +451,7 @@
                 skills: [], visual: 'xie_huaian', partnerUnlocked: false, lastPartnerUseTime: 0
              });
 
-             const [enemy, setEnemy] = useState({ name: "敌人", maxHp: 100, currentHp: 100, atk: 8, level: 1, isBoss: false, visual: 'enemy' });
+             const [enemy, setEnemy] = useState({ name: "敌人", maxHp: 100, currentHp: 100, atk: 8, level: 1, isBoss: false, visual: 'enemy', baseName: '' });
              const [stage, setStage] = useState(1);
              const [maxUnlockedStage, setMaxUnlockedStage] = useState(1);
              const [logs, setLogs] = useState([]);
@@ -466,15 +477,504 @@
              const enemyRef = useRef(null);
              const partnerRef = useRef(null);
              const battleLoopRef = useRef(null); 
+             
+             // --- 核心函数定义 (放在渲染变量之前) ---
+             
+             const updatePlayer = (updater) => setPlayer(prev => (typeof updater === 'function' ? updater(prev) : updater));
+             const updateEnemy = (updater) => setEnemy(prev => (typeof updater === 'function' ? updater(prev) : updater));
+             
+             const addLog = (text, type = 'info') => setLogs(prev => [...prev.slice(-19), { id: Date.now() + Math.random(), text, type }]);
+             const addChat = (speaker, text) => setChats(prev => [...prev.slice(-9), { id: Date.now() + Math.random(), speaker, text }]);
+             const addFloatingText = (value, type, target) => { 
+                const id = Date.now() + Math.random();
+                setFloatingTexts(prev => [...prev, { id, value, type, target }]);
+                setTimeout(() => setFloatingTexts(prev => prev.filter(ft => ft.id !== id)), 1000);
+             };
 
-             // Initialize from Save
+             const loadSavedData = () => {
+                 try {
+                     const saved = localStorage.getItem(SAVE_KEY);
+                     const configSaved = localStorage.getItem(CONFIG_SAVE_KEY);
+                     
+                     if (configSaved) {
+                         const parsedConfig = JSON.parse(configSaved);
+                         setCustomConfig(parsedConfig);
+                         stateRef.current.config = parsedConfig;
+                     }
+
+                     return saved ? JSON.parse(saved) : null;
+                 } catch (e) { return null; }
+             };
+
+             const handleLogin = () => {
+                if (inputCode === "admin") {
+                    setGameState('ADMIN');
+                    return;
+                }
+                if (INVITE_CODES.includes(inputCode)) {
+                  setGameState('GACHA'); 
+                } else {
+                  setLoginError("邀请码错误，请联系淇淇获取");
+                }
+             };
+
+             const handleConnectCloud = () => {
+                 try {
+                     const config = JSON.parse(firebaseConfigInput);
+                     if (initFirebase(config)) {
+                         localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(config));
+                         addLog("云端连接成功！正在同步...", "success");
+                         onAuthStateChanged(auth, (user) => {
+                             setCurrentUser(user);
+                             if(user) addLog("用户已登录", "success");
+                         });
+                         signInAnonymously(auth);
+                     } else {
+                         addLog("连接失败，请检查配置格式", "error");
+                     }
+                 } catch (e) {
+                     addLog("JSON 格式错误", "error");
+                 }
+             };
+
+             // 提前计算属性
+             const stats = getPlayerStats(player); 
+             const charData = CHARACTERS_DATA.find(c => c.id === player.id) || CHARACTERS_DATA[0];
+             const currentShopPool = EQUIPMENT_POOLS[player.id] || EQUIPMENT_POOLS['xie_huaian'];
+             const currentPartnerList = PARTNERS_DB[player.id] || [];
+
+             const triggerEmote = (target, type) => {
+                 let content = "";
+                 const currentConfig = stateRef.current.config; 
+                 const emoteDB = currentConfig.emotes;
+                 
+                 if (target === 'player') {
+                     const playerSpecific = emoteDB.players[player.id]?.[type];
+                     if (playerSpecific && playerSpecific.length > 0) {
+                         content = randomItem(playerSpecific);
+                     } else {
+                         content = randomItem(emoteDB.defaults[type] || emoteDB.defaults.attack);
+                     }
+                     setPlayerEmote({ id: Date.now(), content: content }); 
+                     setTimeout(() => setPlayerEmote(prev => prev?.id === content.id ? null : prev), 3000);
+
+                 } else {
+                     const enemyBaseName = enemy.baseName;
+                     const enemySpecific = emoteDB.enemies[enemyBaseName]?.[type];
+                     
+                     if (enemySpecific && enemySpecific.length > 0) {
+                         content = randomItem(enemySpecific);
+                     } else {
+                         content = randomItem(emoteDB.defaults[type] || emoteDB.defaults.attack);
+                     }
+                     
+                     setEnemyEmote({ id: Date.now(), content: content });
+                     setTimeout(() => setEnemyEmote(prev => prev?.id === content.id ? null : prev), 1500);
+                 }
+             };
+             
+             const generateShopItems = (pid) => {
+                 const pool = EQUIPMENT_POOLS[pid] || EQUIPMENT_POOLS['xie_huaian'];
+                 const commons = pool.filter(i => i.rarity === 1);
+                 const rares = pool.filter(i => i.rarity === 2);
+                 const items = [];
+                 for (let i = 0; i < 6; i++) {
+                     if (Math.random() < 0.05 && rares.length > 0) { items.push({ ...randomItem(rares), id: Date.now() + i }); } 
+                     else { items.push({ ...randomItem(commons), id: Date.now() + i }); }
+                 }
+                 return items;
+             };
+             
+             const refreshShop = (pid, manual = false) => {
+                 if (manual) {
+                     if (player.money < 50) { addLog("银两不足，无法打点", "error"); return; }
+                     updatePlayer(prev => ({...prev, money: prev.money - 50}));
+                     addLog("花费50两，鬼市焕然一新", "success");
+                 }
+                 const newItems = generateShopItems(pid);
+                 const nextTime = Date.now() + (2 * 60 * 60 * 1000); 
+                 setShopState({ items: newItems, nextRefresh: nextTime });
+             };
+             
+             const openShop = () => {
+                 if (Date.now() > shopState.nextRefresh || shopState.items.length === 0) { refreshShop(player.id); }
+                 setShowShop(true);
+             };
+             
+             const forcedSummon = (partnerId, duration) => {
+                  const partnerList = PARTNERS_DB[player.id];
+                  const partner = partnerList.find(p => p.id === partnerId);
+                  if (!partner) return;
+                  setCurrentPartner(partner); setPartnerActive(true);
+                  setTimeout(() => { setPartnerActive(false); setCurrentPartner(null); }, duration);
+             };
+
+             const handleGainExp = (amount) => {
+                updatePlayer(prev => {
+                    let { exp, maxExp, level, name, skills, partnerUnlocked, id } = prev; exp += amount; let leveledUp = false; let newSkill = null;
+                    while (exp >= maxExp) { exp -= maxExp; level += 1; maxExp = Math.floor(maxExp * 1.3); leveledUp = true; const skillTree = SKILLS_DB[id]; if (skillTree && skillTree[level]) { const skill = skillTree[level]; skills = [...skills, skill]; newSkill = skill; } if (level >= PARTNER_UNLOCK_LEVEL && !partnerUnlocked) { partnerUnlocked = true; } }
+                    let nextState = { ...prev, exp, maxExp, level, skills, partnerUnlocked }; if (level >= 3) nextState.partnerUnlocked = true;
+                    if (leveledUp) { 
+                        const s = getPlayerStats(nextState);
+                        nextState.currentHp = s.maxHp; 
+                        addLog(`心智精进！${name} 升至 Lv.${level}`, 'loot'); addFloatingText('LEVEL UP!', 'crit', 'player'); if (newSkill) { addLog(`领悟新计: [${newSkill.name}]`, 'success'); } 
+                    }
+                    return nextState;
+                });
+             };
+
+             const unlockPartner = (partnerId) => {
+                  if (!unlockedPartners.includes(partnerId)) {
+                      const partnerList = PARTNERS_DB[player.id];
+                      if (!partnerList) return;
+                      const partner = partnerList.find(p => p.id === partnerId);
+                      if (partner) { setUnlockedPartners(prev => [...prev, partnerId]); addLog(`结识豪杰: [${partner.name}]`, 'success'); updatePlayer(p => ({...p, partnerUnlocked: true})); }
+                  }
+             };
+             
+             const removePartner = (partnerId) => {
+                  setUnlockedPartners(prev => prev.filter(id => id !== partnerId));
+                  if (currentPartner?.id === partnerId) { setPartnerActive(false); setCurrentPartner(null); }
+                  const partnerList = PARTNERS_DB[player.id];
+                  const partner = partnerList?.find(p => p.id === partnerId);
+                  if (partner) addLog(`[${partner.name}] 离开了队伍`, 'info');
+             };
+
+             const handleVictory = (defeatedEnemy) => {
+                const { gameState, processingVictory, stage } = stateRef.current;
+                if (gameState === 'VICTORY' || processingVictory) return;
+                stateRef.current.processingVictory = true; stateRef.current.gameState = 'VICTORY'; setGameState('VICTORY');
+                addChat('Player', randomItem(DIALOGUES.player.win)); addLog(`${defeatedEnemy.name} 已被清除`, 'success');
+                triggerEmote('player', 'win'); 
+                
+                const partnerList = PARTNERS_DB[player.id];
+                if (partnerList) { partnerList.forEach(p => { if (Math.ceil(stage / 4) === p.unlockLevel && stage % 4 === 0) unlockPartner(p.id); }); }
+                
+                if (defeatedEnemy.isBoss) {
+                     if (stage >= stateRef.current.maxUnlockedStage) {
+                         setMaxUnlockedStage(s => s + 1); 
+                         addLog('新区域已在舆图上解锁', 'system');
+                     }
+                } else if (stage >= stateRef.current.maxUnlockedStage) {
+                     setMaxUnlockedStage(s => s + 1);
+                }
+
+                const xpGain = 40 + (stage * 5) + (defeatedEnemy.isBoss ? 150 : 0); 
+                const moneyGain = randomInt(20, 40) + (defeatedEnemy.isBoss ? 100 : 0);
+                handleGainExp(xpGain); 
+                updatePlayer(prev => ({...prev, money: prev.money + moneyGain})); 
+                addLog(`获得 ${xpGain} 阅历, ${moneyGain} 银两`, 'info');
+                
+                if (Math.random() < 0.25) {
+                  const pool = EQUIPMENT_POOLS[player.id] || EQUIPMENT_POOLS['xie_huaian'];
+                  const newItem = randomItem(pool);
+                  let canAdd = true; if (newItem.type !== 'consumable') { if (player.bag.some(i => i.name === newItem.name)) canAdd = false; }
+                  if (canAdd) { addLog(`缴获: [${newItem.name}]`, 'loot'); updatePlayer(prev => ({ ...prev, bag: [...prev.bag, newItem] })); } else { const sellPrice = Math.floor(newItem.price / 2); addLog(`发现 [${newItem.name}] (折算 ${sellPrice} 两)`, 'info'); updatePlayer(prev => ({...prev, money: prev.money + sellPrice})); }
+                }
+             };
+
+             const handleDefeat = () => { if (gameState === 'RESTING') return; setGameState('RESTING'); setRestTime(REST_DURATION); addLog('布局被破，暂避锋芒...', 'error'); triggerEmote('player', 'lose'); };
+
+             const spawnEnemy = (currentStage) => {
+                if (currentStage > 40) { setGameState('GAME_COMPLETED'); return; } 
+                
+                const chapterNum = Math.ceil(currentStage / 4);
+                const isBossLevel = currentStage % 4 === 0;
+                const storyConfig = STORY_CONFIGS[player.id] || STORY_CONFIGS['xie_huaian'];
+                const chapterConfig = storyConfig[chapterNum] || storyConfig[1]; 
+                
+                let enemyData = {};
+
+                if (isBossLevel) {
+                    if (chapterNum === 10 && unlockedPartners.includes('pu_nichuan')) {
+                        setTimeout(() => { forcedSummon('pu_nichuan', 10000); addLog("蒲逆川：拿命来！", 'loot'); setTimeout(() => { removePartner('pu_nichuan'); addLog("蒲逆川 力竭牺牲...", 'error'); }, 10000); }, 500);
+                    }
+                    if (chapterNum === 9 && unlockedPartners.includes('bai_wan')) {
+                         setTimeout(() => { forcedSummon('bai_wan', 60000); addLog("白皖：我来助你一臂之力。", 'loot'); }, 500);
+                    }
+
+                    const hp = Math.floor(100 * chapterConfig.hpScale);
+                    const atk = Math.floor(8 * chapterConfig.atkScale);
+                    enemyData = {
+                         name: chapterConfig.enemyName,
+                         maxHp: hp,
+                         currentHp: hp,
+                         atk: atk,
+                         level: currentStage,
+                         isBoss: true, 
+                         visual: chapterConfig.enemyName,
+                         baseName: chapterConfig.enemyName 
+                    };
+                    addLog(`--- ${chapterConfig.title} (终) ---`, 'system');
+                } else {
+                    const minionNames = MINION_DB[player.id] || MINION_DB['xie_huaian'];
+                    const name = randomItem(minionNames);
+                    const minionHpScale = chapterConfig.hpScale * 0.4;
+                    const minionAtkScale = chapterConfig.atkScale * 0.6;
+
+                    const hp = Math.floor(100 * minionHpScale);
+                    const atk = Math.floor(8 * minionAtkScale);
+
+                    enemyData = {
+                        name: `${name} (关卡 ${currentStage%4 === 0 ? 4 : currentStage%4}/4)`,
+                        maxHp: hp,
+                        currentHp: hp,
+                        atk: atk,
+                        level: currentStage,
+                        isBoss: false,
+                        visual: 'enemy',
+                        baseName: name 
+                    };
+                     addLog(`--- ${chapterConfig.title} (途) ---`, 'system');
+                }
+
+                updateEnemy(enemyData);
+                setResurrected(false);
+                stateRef.current.processingVictory = false; 
+                
+                // Trigger intro chat from Custom Config
+                const currentConfig = stateRef.current.config;
+                if (isBossLevel) {
+                     const introTexts = currentConfig.dialogues[chapterConfig.enemyName] || currentConfig.dialogues['default'];
+                     addChat('Enemy', randomItem(introTexts));
+                } else {
+                     addChat('Enemy', "站住！此路不通！");
+                }
+                
+                setGameState('BATTLE');
+             };
+
+             const nextStage = () => { if (stage >= 40) { setGameState('GAME_COMPLETED'); return; } setStage(s => s + 1); const nextS = stage + 1; spawnEnemy(nextS); };
+             const selectStage = (chapterNum) => { 
+                 setShowMap(false); 
+                 const startStage = (chapterNum - 1) * 4 + 1;
+                 setStage(startStage); 
+                 spawnEnemy(startStage); 
+             };
+             
+             const manualAttack = () => { if (gameState === 'BATTLE' && !showShop && !showPartnerSelect && !showStats && !showMap && !isAutoBattle) { handleAttackRound(); } };
+             const openPartnerSelect = () => { if (!player.partnerUnlocked) return; if (partnerCooldownTimer > 0) { addLog(`伙伴休整中...`, 'error'); return; } setShowPartnerSelect(true); };
+             const finishRest = () => { updatePlayer(p => ({...p, currentHp: stats.maxHp})); addLog('休整完毕，重回棋局！', 'system'); spawnEnemy(stage); };
+             const instantRevive = () => { updatePlayer(p => ({...p, currentHp: stats.maxHp})); setRestTime(0); };
+             
+             // ----------------- 天机阁 (Admin) 逻辑 -----------------
+             const saveConfig = () => {
+                 localStorage.setItem(CONFIG_SAVE_KEY, JSON.stringify(customConfig));
+                 stateRef.current.config = customConfig; 
+                 
+                 if (db && auth && auth.currentUser) {
+                      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global');
+                      setDoc(docRef, customConfig)
+                        .then(() => addLog("已同步至云端", "success"))
+                        .catch(err => addLog("云端同步失败: " + err.message, "error"));
+                 } else {
+                      addLog("已保存至本地", "warning");
+                 }
+             };
+
+             const handleAddDialogue = () => {
+                 if (!newItemInput.trim() || !editingKey) return;
+                 const newDialogues = { ...customConfig.dialogues };
+                 if (!newDialogues[editingKey]) newDialogues[editingKey] = [];
+                 newDialogues[editingKey].push(newItemInput.trim());
+                 setCustomConfig({ ...customConfig, dialogues: newDialogues });
+                 setNewItemInput('');
+             };
+
+             const handleDeleteDialogue = (key, index) => {
+                 const newDialogues = { ...customConfig.dialogues };
+                 newDialogues[key].splice(index, 1);
+                 setCustomConfig({ ...customConfig, dialogues: newDialogues });
+             };
+
+             const handleAddEmote = () => {
+                 if (!newEmoteInput.trim()) return;
+                 const newEmotes = { ...customConfig.emotes };
+                 let targetArray;
+
+                 if (emoteCategory === 'defaults') {
+                     if (!newEmotes.defaults[emoteType]) newEmotes.defaults[emoteType] = [];
+                     targetArray = newEmotes.defaults[emoteType];
+                 } else {
+                     if (!emoteKey) return;
+                     if (!newEmotes[emoteCategory][emoteKey]) newEmotes[emoteCategory][emoteKey] = {};
+                     if (!newEmotes[emoteCategory][emoteKey][emoteType]) newEmotes[emoteCategory][emoteKey][emoteType] = [];
+                     targetArray = newEmotes[emoteCategory][emoteKey][emoteType];
+                 }
+
+                 targetArray.push(newEmoteInput.trim());
+                 setCustomConfig({ ...customConfig, emotes: newEmotes });
+                 setNewEmoteInput('');
+             };
+
+             const handleDeleteEmote = (idx) => {
+                 const newEmotes = { ...customConfig.emotes };
+                 let targetArray;
+
+                 if (emoteCategory === 'defaults') {
+                     targetArray = newEmotes.defaults[emoteType];
+                 } else {
+                     targetArray = newEmotes[emoteCategory][emoteKey][emoteType];
+                 }
+
+                 targetArray.splice(idx, 1);
+                 setCustomConfig({ ...customConfig, emotes: newEmotes });
+             };
+             
+             const getCurrentEmoteList = () => {
+                 if (emoteCategory === 'defaults') {
+                     return customConfig.emotes.defaults[emoteType] || [];
+                 }
+                 if (emoteKey && customConfig.emotes[emoteCategory][emoteKey]) {
+                     return customConfig.emotes[emoteCategory][emoteKey][emoteType] || [];
+                 }
+                 return [];
+             };
+
+             const summonSelectedPartner = (partner) => { setShowPartnerSelect(false); setCurrentPartner(partner); if (gameState !== 'BATTLE') return; let damage = stats.atk * 4; setPartnerActive(true); updatePlayer(prev => ({ ...prev, lastPartnerUseTime: Date.now() })); setPartnerCooldownTimer(partner.cooldown); addLog(`${partner.name} 助战！发动 [${partner.skillName}]`, 'loot'); addFloatingText(`${partner.skillName}!`, 'crit', 'player'); updateEnemy(prev => { const newHp = Math.max(0, prev.currentHp - damage); setTimeout(() => addFloatingText(`-${damage}`, 'crit', 'enemy'), 300); return { ...prev, currentHp: newHp }; }); setTimeout(() => { setPartnerActive(false); setCurrentPartner(null); addLog(`${partner.name}：暂且退下。`, 'info'); }, partner.duration); };
+             
+             const handleUseItem = (item, index) => {
+                  if (player.currentHp >= stats.maxHp && !item.cure) { addLog("气血已满，无需使用", "info"); return; }
+                  updatePlayer(prev => { const newBag = [...prev.bag]; newBag.splice(index, 1); let recovered = 0; let newHp = prev.currentHp; if (item.heal) { newHp = Math.min(stats.maxHp, prev.currentHp + item.heal); recovered = newHp - prev.currentHp; } addLog(`使用了 [${item.name}]，恢复 ${recovered} 点气血`, 'success'); if (item.cure) { addLog(`[${item.name}] 发挥药效，毒素已解`, 'success'); } return { ...prev, currentHp: newHp, bag: newBag }; });
+             };
+             
+             const handleEquip = (item, index) => {
+                  if (item.type === 'consumable') { handleUseItem(item, index); return; }
+                  updatePlayer(prev => { const newSlots = { ...prev.slots }; if (item.type === 'weapon') newSlots.weapon = item; if (item.type === 'clothes') newSlots.clothes = item; if (item.type === 'guard') newSlots.guard = item; addLog(`装备了 [${item.name}]`, 'info'); return { ...prev, slots: newSlots }; });
+             };
+             
+             const handleUnequip = (type) => { updatePlayer(prev => { const newSlots = { ...prev.slots }; const item = newSlots[type]; if (item) { addLog(`卸下了 [${item.name}]`, 'info'); newSlots[type] = null; } return { ...prev, slots: newSlots }; }); };
+             
+             const handleSell = (e, item, index) => { e.stopPropagation(); const sellPrice = Math.floor(item.price / 2); updatePlayer(prev => { const newSlots = { ...prev.slots }; if (newSlots.weapon === item) newSlots.weapon = null; if (newSlots.clothes === item) newSlots.clothes = null; if (newSlots.guard === item) newSlots.guard = null; const newBag = [...prev.bag]; newBag.splice(index, 1); return { ...prev, money: prev.money + sellPrice, bag: newBag, slots: newSlots }; }); addLog(`售出 [${item.name}]，获得 ${sellPrice} 银两`, 'info'); };
+             
+             const handleBuy = (item) => { if (player.money >= item.price) { if (item.type !== 'consumable' && player.bag.some(i => i.name === item.name)) { addLog("已拥有此物品", "error"); return; } updatePlayer(prev => ({ ...prev, money: prev.money - item.price, bag: [...prev.bag, item] })); setShopState(prev => ({ ...prev, items: prev.items.filter(i => i.id !== item.id) })); addLog(`购得 [${item.name}]`, 'success'); } else { addLog("银两不足", "error"); } };
+
+             const handleAttackRound = () => {
+                const { player, enemy, gameState, partnerActive, currentPartner, processingVictory } = stateRef.current;
+                const currentConfig = stateRef.current.config;
+
+                if (processingVictory || gameState !== 'BATTLE') return;
+                if (enemy.currentHp <= 0) { handleVictory(enemy); return; }
+                if (player.currentHp <= 0) { handleDefeat(); return; }
+
+                if (Math.random() < 0.25) {
+                    const enemyLines = currentConfig.dialogues[enemy.baseName] || currentConfig.dialogues['default'];
+                    const speaker = Math.random() > 0.5 ? 'Player' : 'Enemy';
+                    const text = speaker === 'Player' ? randomItem(DIALOGUES.player.attack) : randomItem(enemyLines);
+                    addChat(speaker, text);
+                    if(speaker === 'Player') triggerEmote('player', 'attack'); 
+                }
+
+                triggerAnimation(playerRef, 'animate-lunge-right');
+                
+                // const currentStats = getPlayerStats(player); // Use stats from outer scope
+
+                if (partnerActive && currentPartner) {
+                    triggerAnimation(partnerRef, 'animate-lunge-right');
+                    setTimeout(() => {
+                        const partnerDmg = Math.ceil(stats.atk * 0.8);
+                        updateEnemy(prev => {
+                            const newHp = Math.max(0, prev.currentHp - partnerDmg);
+                            addFloatingText(`-${partnerDmg}`, 'loot', 'enemy');
+                            return { ...prev, currentHp: newHp };
+                        });
+                    }, 100); 
+                }
+                setTimeout(() => triggerAnimation(enemyRef, 'animate-lunge-left'), 200);
+
+                setTimeout(() => {
+                  const { enemy: currEnemy, player: currPlayer } = stateRef.current;
+                  if (currEnemy.currentHp <= 0) { handleVictory(currEnemy); return; }
+                  let damage = stats.atk; 
+                  let hitCount = 1;
+                  const hasSkill = (skills, type) => skills.some(s => s.type === type);
+                  if (hasSkill(currPlayer.skills, 'passive_double') && Math.random() < 0.4) { hitCount = 2; addFloatingText('连环计!', 'loot', 'player'); }
+                  if (hasSkill(currPlayer.skills, 'passive_debuff')) { updateEnemy(prev => ({...prev, atk: Math.max(1, prev.atk - 2)})); if(Math.random()<0.2) addFloatingText('攻心', 'info', 'player'); }
+                  
+                  let totalDamage = 0;
+                  for (let i = 0; i < hitCount; i++) {
+                      let currentHitDmg = damage;
+                      let isCrit = Math.random() * 100 < stats.crit;
+                      if (isCrit) {
+                          currentHitDmg = Math.floor(currentHitDmg * 1.8); 
+                          triggerEmote('player', 'crit');
+                      }
+                      currentHitDmg = Math.floor(currentHitDmg * (randomInt(90, 110) / 100));
+                      if (hasSkill(currPlayer.skills, 'passive_execute') && (currEnemy.currentHp / currEnemy.maxHp < 0.4)) { currentHitDmg = 9999; addFloatingText('斩杀!', 'crit', 'player'); triggerEmote('player', 'skill'); }
+                      totalDamage += currentHitDmg;
+                      
+                      updateEnemy(prev => {
+                          const newHp = prev.currentHp - currentHitDmg;
+                          setTimeout(() => { addFloatingText(`-${currentHitDmg}${isCrit ? '!' : ''}`, isCrit ? 'crit' : 'damage', 'enemy'); }, i * 200);
+                          return { ...prev, currentHp: newHp }; 
+                      });
+                  }
+                  addLog(`造成 ${totalDamage} 伤害${hitCount > 1 ? '(连环)' : ''}`);
+                  triggerAnimation(enemyRef, 'animate-shake');
+                  triggerEmote('enemy', 'hit'); 
+                }, 300);
+
+                setTimeout(() => {
+                  const { enemy: currEnemy, player: currPlayer } = stateRef.current;
+                  if (currEnemy.currentHp <= 0) { handleVictory(currEnemy); return; }
+                  if (currPlayer.currentHp <= 0) { handleDefeat(); return; }
+
+                  updateEnemy(latestEnemy => {
+                      let damage = latestEnemy.atk;
+                      damage = Math.floor(damage * (randomInt(90, 110) / 100));
+                      const hasSkill = (skills, type) => skills.some(s => s.type === type);
+
+                      if (hasSkill(player.skills, 'passive_dodge') && Math.random() < 0.15) { addFloatingText('闪避!', 'info', 'player'); damage = 0; triggerEmote('player', 'dodge'); }
+                      if (damage > 0) {
+                          if (hasSkill(player.skills, 'passive_reflect')) {
+                              const reflectDmg = Math.floor(damage * 0.3);
+                              setTimeout(() => { updateEnemy(prev => { const newHp = Math.max(0, prev.currentHp - reflectDmg); if (reflectDmg > 0) addFloatingText(`反伤-${reflectDmg}`, 'loot', 'enemy'); return {...prev, currentHp: newHp}; }); }, 50);
+                          }
+                          updatePlayer(prev => {
+                            let newHp = prev.currentHp - damage;
+                            addFloatingText(`-${damage}`, 'damage', 'player');
+                            triggerEmote('player', 'hit'); 
+                            if (newHp <= 0 && hasSkill(prev.skills, 'passive_resurrect') && !resurrected) {
+                                const maxHp = getPlayerStats(prev).maxHp; newHp = Math.floor(maxHp * 0.3); setResurrected(true); addFloatingText('金蝉脱壳!', 'crit', 'player'); addLog('死局求生，触发金蝉脱壳！', 'success'); triggerEmote('player', 'skill');
+                            }
+                            return { ...prev, currentHp: newHp };
+                          });
+                          triggerAnimation(playerRef, 'animate-shake');
+                      }
+                      return latestEnemy;
+                  });
+                }, 800);
+             };
+
+             const triggerAnimation = (ref, className) => { if (ref.current) { ref.current.classList.remove(className); void ref.current.offsetWidth; ref.current.classList.add(className); setTimeout(() => { if(ref.current) ref.current.classList.remove(className); }, 500); } };
+             
+             // 5. Restore Missing Functions (rollCharacter & resetGame)
+             const rollCharacter = () => {
+                const charData = randomItem(CHARACTERS_DATA); 
+                const skillDB = SKILLS_DB[charData.id]; 
+                const initialSkills = [skillDB[1]]; 
+                updatePlayer({ id: charData.id, name: charData.name, baseHp: charData.baseHp, currentHp: charData.baseHp, baseAtk: charData.baseAtk, baseCrit: charData.baseCrit, level: 1, exp: 0, maxExp: 100, money: 100, bag: [], slots: { weapon: null, clothes: null, guard: null }, skills: initialSkills, visual: charData.visual, partnerUnlocked: false, lastPartnerUseTime: 0 });
+                setStage(1); setMaxUnlockedStage(1); setLogs([]); setChats([]); setResurrected(false); setPartnerCooldownTimer(0); setIsAutoBattle(true); setUnlockedPartners([]); 
+                refreshShop(charData.id);
+                setGameState('MENU'); addLog(`天命所归。你是 [${charData.name}]`, 'system'); addLog(`初始绝学: [${skillDB[1].name}]`, 'loot');
+             };
+
+             const resetGame = () => {
+                 localStorage.removeItem(SAVE_KEY);
+                 localStorage.removeItem(CONFIG_SAVE_KEY);
+                 setGameState('LOGIN');
+             };
+
+
+             // --- Effects ---
              useEffect(() => {
                 const savedData = loadSavedData();
                 if (savedData) {
                     setPlayer(savedData.player);
                     setEnemy(savedData.enemy);
                     setStage(savedData.stage);
-                    setMaxUnlockedStage(savedData.maxUnlockedStage);
+                    // 兼容旧存档逻辑
+                    setMaxUnlockedStage(savedData.maxUnlockedStage || 1);
                     setUnlockedPartners(savedData.unlockedPartners);
                     setShopState(savedData.shop || { items: [], nextRefresh: 0 });
                     if (savedData.gameState === 'BATTLE' || savedData.gameState === 'MENU' || savedData.gameState === 'RESTING') {
@@ -486,7 +986,6 @@
                 }
              }, []);
 
-             // Save to LocalStorage
              useEffect(() => {
                 if (gameState !== 'LOGIN' && gameState !== 'GACHA') {
                     const dataToSave = { player, enemy, stage, maxUnlockedStage, unlockedPartners, gameState, shop: shopState };
@@ -494,21 +993,42 @@
                 }
              }, [player, enemy, stage, maxUnlockedStage, unlockedPartners, gameState, shopState]);
 
-
-             // --- Sync Ref ---
              useEffect(() => {
                 stateRef.current = { 
                     player, enemy, gameState, showShop, showPartnerSelect, showStats, showMap, activeMobileTab,
                     isAutoBattle, partnerActive, currentPartner, stage, unlockedPartners, 
                     maxUnlockedStage, processingVictory: stateRef.current.processingVictory,
-                    shop: shopState 
+                    shop: shopState,
+                    config: customConfig 
                 };
-             }, [player, enemy, gameState, showShop, showPartnerSelect, showStats, showMap, activeMobileTab, isAutoBattle, partnerActive, currentPartner, stage, unlockedPartners, maxUnlockedStage, shopState]);
+             }, [player, enemy, gameState, showShop, showPartnerSelect, showStats, showMap, activeMobileTab, isAutoBattle, partnerActive, currentPartner, stage, unlockedPartners, maxUnlockedStage, shopState, customConfig]);
              
              useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
              useEffect(() => { chatsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats]);
              
-             // --- Timers ---
+             useEffect(() => {
+                if (auth) {
+                    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+                        setCurrentUser(user);
+                        if (user) {
+                            const configDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', 'global');
+                            const unsubscribeSnapshot = onSnapshot(configDocRef, (docSnap) => {
+                                if (docSnap.exists()) {
+                                    const data = docSnap.data();
+                                    setCustomConfig(data);
+                                    stateRef.current.config = data;
+                                    addLog("已同步云端天机阁配置", "success");
+                                }
+                            }, (error) => {
+                                console.error("Snapshot error:", error);
+                            });
+                            return () => unsubscribeSnapshot();
+                        }
+                    });
+                    return () => unsubscribeAuth();
+                }
+             }, []);
+
              useEffect(() => {
                 if (player.lastPartnerUseTime > 0) {
                   const interval = setInterval(() => {
@@ -543,283 +1063,24 @@
                  return () => clearInterval(interval);
              }, [showShop, shopState.nextRefresh, player.id]);
 
-
-             // --- Game Logic Functions ---
-             const updatePlayer = (updater) => setPlayer(prev => (typeof updater === 'function' ? updater(prev) : updater));
-             const updateEnemy = (updater) => setEnemy(prev => (typeof updater === 'function' ? updater(prev) : updater));
-             const addLog = (text, type = 'info') => setLogs(prev => [...prev.slice(-19), { id: Date.now() + Math.random(), text, type }]);
-             const addChat = (speaker, text) => setChats(prev => [...prev.slice(-9), { id: Date.now() + Math.random(), speaker, text }]);
-             const addFloatingText = (value, type, target) => { 
-                const id = Date.now() + Math.random();
-                setFloatingTexts(prev => [...prev, { id, value, type, target }]);
-                setTimeout(() => setFloatingTexts(prev => prev.filter(ft => ft.id !== id)), 1000);
-             };
-
-             const handleLogin = () => {
-                if (INVITE_CODES.includes(inputCode)) {
-                  setGameState('GACHA'); 
-                } else {
-                  setLoginError("邀请码错误，请联系淇淇获取");
-                }
-             };
-
-             const getPlayerStats = (p) => {
-                let bonusAtk = 0; let bonusHp = 0; let bonusCrit = 0;
-                Object.values(p.slots).forEach(item => {
-                  if (item) { bonusAtk += (item.atk || 0); bonusHp += (item.hp || 0); bonusCrit += (item.crit || 0); }
-                });
-                if (p.skills.some(s => s.type === 'passive_crit_buff')) bonusCrit += 20; 
-                const baseHp = p.baseHp || 100; const baseAtk = p.baseAtk || 10; const baseCrit = p.baseCrit || 0;
-                return { maxHp: baseHp + bonusHp + (p.level - 1) * 15, atk: baseAtk + bonusAtk + (p.level - 1) * 2, crit: baseCrit + bonusCrit, bonusAtk, bonusHp, bonusCrit };
-             };
-             
-             // --- Shop ---
-             const generateShopItems = (pid) => {
-                 const pool = EQUIPMENT_POOLS[pid] || EQUIPMENT_POOLS['xie_huaian'];
-                 const commons = pool.filter(i => i.rarity === 1);
-                 const rares = pool.filter(i => i.rarity === 2);
-                 const items = [];
-                 for (let i = 0; i < 6; i++) {
-                     if (Math.random() < 0.05 && rares.length > 0) { items.push({ ...randomItem(rares), id: Date.now() + i }); } 
-                     else { items.push({ ...randomItem(commons), id: Date.now() + i }); }
-                 }
-                 return items;
-             };
-             
-             const refreshShop = (pid, manual = false) => {
-                 if (manual) {
-                     if (player.money < 50) { addLog("银两不足，无法打点", "error"); return; }
-                     updatePlayer(prev => ({...prev, money: prev.money - 50}));
-                     addLog("花费50两，鬼市焕然一新", "success");
-                 }
-                 const newItems = generateShopItems(pid);
-                 const nextTime = Date.now() + (2 * 60 * 60 * 1000); 
-                 setShopState({ items: newItems, nextRefresh: nextTime });
-             };
-             
-             const openShop = () => {
-                 if (Date.now() > shopState.nextRefresh || shopState.items.length === 0) { refreshShop(player.id); }
-                 setShowShop(true);
-             };
-             
-             const handleBuy = (item) => {
-                  if (player.money >= item.price) {
-                      if (item.type !== 'consumable' && player.bag.some(i => i.name === item.name)) { addLog("已拥有此物品", "error"); return; }
-                      updatePlayer(prev => ({ ...prev, money: prev.money - item.price, bag: [...prev.bag, item] }));
-                      setShopState(prev => ({ ...prev, items: prev.items.filter(i => i.id !== item.id) }));
-                      addLog(`购得 [${item.name}]`, 'success');
-                  } else { addLog("银两不足", "error"); }
-              };
-
-             // --- Game Actions ---
-             const rollCharacter = () => {
-                const charData = randomItem(CHARACTERS_DATA); 
-                const skillDB = SKILLS_DB[charData.id]; 
-                const initialSkills = [skillDB[1]]; 
-                updatePlayer({ id: charData.id, name: charData.name, baseHp: charData.baseHp, currentHp: charData.baseHp, baseAtk: charData.baseAtk, baseCrit: charData.baseCrit, level: 1, exp: 0, maxExp: 100, money: 100, bag: [], slots: { weapon: null, clothes: null, guard: null }, skills: initialSkills, visual: charData.visual, partnerUnlocked: false, lastPartnerUseTime: 0 });
-                setStage(1); setMaxUnlockedStage(1); setLogs([]); setChats([]); setResurrected(false); setPartnerCooldownTimer(0); setIsAutoBattle(true); setUnlockedPartners([]); 
-                refreshShop(charData.id);
-                setGameState('MENU'); addLog(`天命所归。你是 [${charData.name}]`, 'system'); addLog(`初始绝学: [${skillDB[1].name}]`, 'loot');
-             };
-
-             const resetGame = () => {
-                 localStorage.removeItem(SAVE_KEY);
-                 setGameState('LOGIN');
-             };
-
-             const unlockPartner = (partnerId) => {
-                  if (!unlockedPartners.includes(partnerId)) {
-                      const partnerList = PARTNERS_DB[player.id];
-                      if (!partnerList) return;
-                      const partner = partnerList.find(p => p.id === partnerId);
-                      if (partner) { setUnlockedPartners(prev => [...prev, partnerId]); addLog(`结识豪杰: [${partner.name}]`, 'success'); updatePlayer(p => ({...p, partnerUnlocked: true})); }
-                  }
-             };
-
-             const removePartner = (partnerId) => {
-                  setUnlockedPartners(prev => prev.filter(id => id !== partnerId));
-                  if (currentPartner?.id === partnerId) { setPartnerActive(false); setCurrentPartner(null); }
-                  const partnerList = PARTNERS_DB[player.id];
-                  const partner = partnerList?.find(p => p.id === partnerId);
-                  if (partner) addLog(`[${partner.name}] 离开了队伍`, 'info');
-             };
-
-             const spawnEnemy = (currentStage) => {
-                if (currentStage > 10) { setGameState('GAME_COMPLETED'); return; }
-                const storyConfig = STORY_CONFIGS[player.id] || STORY_CONFIGS['xie_huaian'];
-                const config = storyConfig[currentStage] || { enemyName: "神秘人", hpScale: 1, atkScale: 1 };
-                
-                if (currentStage === 10 && unlockedPartners.includes('pu_nichuan')) {
-                    setTimeout(() => { forcedSummon('pu_nichuan', 10000); addLog("蒲逆川：拿命来！", 'loot'); setTimeout(() => { removePartner('pu_nichuan'); addLog("蒲逆川 力竭牺牲...", 'error'); }, 10000); }, 500);
-                }
-                if (currentStage === 9 && unlockedPartners.includes('bai_wan')) {
-                     setTimeout(() => { forcedSummon('bai_wan', 60000); addLog("白皖：我来助你一臂之力。", 'loot'); }, 500);
-                }
-
-                const hp = Math.floor(100 * config.hpScale); const atk = Math.floor(8 * config.atkScale);  
-                updateEnemy({ name: config.enemyName, maxHp: hp, currentHp: hp, atk: atk, level: currentStage, isBoss: config.boss, visual: config.enemyName });
-                setResurrected(false);
-                stateRef.current.processingVictory = false; 
-                addLog(`--- ${config.title} ---`, 'system');
-                const introTexts = STORY_DIALOGUES[config.enemyName] || STORY_DIALOGUES['default'];
-                addChat('Enemy', randomItem(introTexts));
-                setGameState('BATTLE');
-             };
-
-             const forcedSummon = (partnerId, duration) => {
-                  const partnerList = PARTNERS_DB[player.id];
-                  const partner = partnerList.find(p => p.id === partnerId);
-                  if (!partner) return;
-                  setCurrentPartner(partner); setPartnerActive(true);
-                  setTimeout(() => { setPartnerActive(false); setCurrentPartner(null); }, duration);
-             };
-
-             const handleAttackRound = () => {
-                const { player, enemy, gameState, partnerActive, currentPartner, processingVictory } = stateRef.current;
-                if (processingVictory || gameState !== 'BATTLE') return;
-                if (enemy.currentHp <= 0) { handleVictory(enemy); return; }
-                if (player.currentHp <= 0) { handleDefeat(); return; }
-
-                const stats = getPlayerStats(player); 
-                if (Math.random() < 0.25) {
-                    const enemyLines = STORY_DIALOGUES[enemy.name] || STORY_DIALOGUES['default'];
-                    const speaker = Math.random() > 0.5 ? 'Player' : 'Enemy';
-                    const text = speaker === 'Player' ? randomItem(DIALOGUES.player.attack) : randomItem(enemyLines);
-                    addChat(speaker, text);
-                }
-
-                triggerAnimation(playerRef, 'animate-lunge-right');
-                if (partnerActive && currentPartner) {
-                    triggerAnimation(partnerRef, 'animate-lunge-right');
-                    setTimeout(() => {
-                        const partnerDmg = Math.ceil(stats.atk * 0.8);
-                        updateEnemy(prev => {
-                            const newHp = Math.max(0, prev.currentHp - partnerDmg);
-                            addFloatingText(`-${partnerDmg}`, 'loot', 'enemy');
-                            return { ...prev, currentHp: newHp };
-                        });
-                    }, 100); 
-                }
-                setTimeout(() => triggerAnimation(enemyRef, 'animate-lunge-left'), 200);
-
-                setTimeout(() => {
-                  const { enemy: currEnemy, player: currPlayer } = stateRef.current;
-                  if (currEnemy.currentHp <= 0) { handleVictory(currEnemy); return; }
-                  let damage = stats.atk; let hitCount = 1;
-                  const hasSkill = (skills, type) => skills.some(s => s.type === type);
-                  if (hasSkill(currPlayer.skills, 'passive_double') && Math.random() < 0.4) { hitCount = 2; addFloatingText('连环计!', 'loot', 'player'); }
-                  if (hasSkill(currPlayer.skills, 'passive_debuff')) { updateEnemy(prev => ({...prev, atk: Math.max(1, prev.atk - 2)})); if(Math.random()<0.2) addFloatingText('攻心', 'info', 'player'); }
-                  
-                  let totalDamage = 0;
-                  for (let i = 0; i < hitCount; i++) {
-                      let currentHitDmg = damage;
-                      let isCrit = Math.random() * 100 < stats.crit;
-                      if (isCrit) currentHitDmg = Math.floor(currentHitDmg * 1.8); 
-                      currentHitDmg = Math.floor(currentHitDmg * (randomInt(90, 110) / 100));
-                      if (hasSkill(currPlayer.skills, 'passive_execute') && (currEnemy.currentHp / currEnemy.maxHp < 0.4)) { currentHitDmg = 9999; addFloatingText('斩杀!', 'crit', 'player'); }
-                      totalDamage += currentHitDmg;
-                      updateEnemy(prev => {
-                          const newHp = prev.currentHp - currentHitDmg;
-                          setTimeout(() => { addFloatingText(`-${currentHitDmg}${isCrit ? '!' : ''}`, isCrit ? 'crit' : 'damage', 'enemy'); }, i * 200);
-                          return { ...prev, currentHp: newHp }; 
-                      });
-                  }
-                  addLog(`造成 ${totalDamage} 伤害${hitCount > 1 ? '(连环)' : ''}`);
-                  triggerAnimation(enemyRef, 'animate-shake');
-                }, 300);
-
-                setTimeout(() => {
-                  const { enemy: currEnemy, player: currPlayer } = stateRef.current;
-                  if (currEnemy.currentHp <= 0) { handleVictory(currEnemy); return; }
-                  if (currPlayer.currentHp <= 0) { handleDefeat(); return; }
-
-                  updateEnemy(latestEnemy => {
-                      let damage = latestEnemy.atk;
-                      damage = Math.floor(damage * (randomInt(90, 110) / 100));
-                      const hasSkill = (skills, type) => skills.some(s => s.type === type);
-
-                      if (hasSkill(player.skills, 'passive_dodge') && Math.random() < 0.15) { addFloatingText('闪避!', 'info', 'player'); damage = 0; }
-                      if (damage > 0) {
-                          if (hasSkill(player.skills, 'passive_reflect')) {
-                              const reflectDmg = Math.floor(damage * 0.3);
-                              setTimeout(() => { updateEnemy(prev => { const newHp = Math.max(0, prev.currentHp - reflectDmg); if (reflectDmg > 0) addFloatingText(`反伤-${reflectDmg}`, 'loot', 'enemy'); return {...prev, currentHp: newHp}; }); }, 50);
-                          }
-                          updatePlayer(prev => {
-                            let newHp = prev.currentHp - damage;
-                            addFloatingText(`-${damage}`, 'damage', 'player');
-                            if (newHp <= 0 && hasSkill(prev.skills, 'passive_resurrect') && !resurrected) {
-                                const maxHp = getPlayerStats(prev).maxHp; newHp = Math.floor(maxHp * 0.3); setResurrected(true); addFloatingText('金蝉脱壳!', 'crit', 'player'); addLog('死局求生，触发金蝉脱壳！', 'success');
-                            }
-                            return { ...prev, currentHp: newHp };
-                          });
-                          triggerAnimation(playerRef, 'animate-shake');
-                      }
-                      return latestEnemy;
-                  });
-                }, 800);
-             };
-
-             const triggerAnimation = (ref, className) => { if (ref.current) { ref.current.classList.remove(className); void ref.current.offsetWidth; ref.current.classList.add(className); setTimeout(() => { if(ref.current) ref.current.classList.remove(className); }, 500); } };
-
-             const handleVictory = (defeatedEnemy) => {
-                const { gameState, processingVictory, stage } = stateRef.current;
-                if (gameState === 'VICTORY' || processingVictory) return;
-                stateRef.current.processingVictory = true; stateRef.current.gameState = 'VICTORY'; setGameState('VICTORY');
-                addChat('Player', randomItem(DIALOGUES.player.win)); addLog(`${defeatedEnemy.name} 已被清除`, 'success');
-                const partnerList = PARTNERS_DB[player.id];
-                if (partnerList) { partnerList.forEach(p => { if (stage === p.unlockLevel) unlockPartner(p.id); }); }
-                if (stage < 10 && stage >= stateRef.current.maxUnlockedStage) { setMaxUnlockedStage(s => s + 1); addLog('新区域已在舆图上解锁', 'system'); }
-                const xpGain = 40 + (stage * 15) + (defeatedEnemy.isBoss ? 150 : 0); const moneyGain = randomInt(20, 50) + (defeatedEnemy.isBoss ? 100 : 0);
-                handleGainExp(xpGain); updatePlayer(prev => ({...prev, money: prev.money + moneyGain})); addLog(`获得 ${xpGain} 阅历, ${moneyGain} 银两`, 'info');
-                if (Math.random() < 0.25) {
-                  const pool = EQUIPMENT_POOLS[player.id] || EQUIPMENT_POOLS['xie_huaian'];
-                  const newItem = randomItem(pool);
-                  let canAdd = true; if (newItem.type !== 'consumable') { if (player.bag.some(i => i.name === newItem.name)) canAdd = false; }
-                  if (canAdd) { addLog(`缴获: [${newItem.name}]`, 'loot'); updatePlayer(prev => ({ ...prev, bag: [...prev.bag, newItem] })); } else { const sellPrice = Math.floor(newItem.price / 2); addLog(`发现 [${newItem.name}] (折算 ${sellPrice} 两)`, 'info'); updatePlayer(prev => ({...prev, money: prev.money + sellPrice})); }
-                }
-             };
-
-             const handleGainExp = (amount) => {
-                updatePlayer(prev => {
-                    let { exp, maxExp, level, name, skills, partnerUnlocked, id } = prev; exp += amount; let leveledUp = false; let newSkill = null;
-                    while (exp >= maxExp) { exp -= maxExp; level += 1; maxExp = Math.floor(maxExp * 1.3); leveledUp = true; const skillTree = SKILLS_DB[id]; if (skillTree && skillTree[level]) { const skill = skillTree[level]; skills = [...skills, skill]; newSkill = skill; } if (level >= PARTNER_UNLOCK_LEVEL && !partnerUnlocked) { partnerUnlocked = true; } }
-                    let nextState = { ...prev, exp, maxExp, level, skills, partnerUnlocked }; if (level >= 3) nextState.partnerUnlocked = true;
-                    if (leveledUp) { const stats = getPlayerStats(nextState); nextState.currentHp = stats.maxHp; addLog(`心智精进！${name} 升至 Lv.${level}`, 'loot'); addFloatingText('LEVEL UP!', 'crit', 'player'); if (newSkill) { addLog(`领悟新计: [${newSkill.name}]`, 'success'); } }
-                    return nextState;
-                });
-             };
-
-             const handleEquip = (item, index) => {
-                  if (item.type === 'consumable') { handleUseItem(item, index); return; }
-                  updatePlayer(prev => { const newSlots = { ...prev.slots }; if (item.type === 'weapon') newSlots.weapon = item; if (item.type === 'clothes') newSlots.clothes = item; if (item.type === 'guard') newSlots.guard = item; addLog(`装备了 [${item.name}]`, 'info'); return { ...prev, slots: newSlots }; });
-             };
-             const handleUseItem = (item, index) => {
-                  const stats = getPlayerStats(player); if (player.currentHp >= stats.maxHp && !item.cure) { addLog("气血已满，无需使用", "info"); return; }
-                  updatePlayer(prev => { const newBag = [...prev.bag]; newBag.splice(index, 1); let recovered = 0; let newHp = prev.currentHp; if (item.heal) { newHp = Math.min(stats.maxHp, prev.currentHp + item.heal); recovered = newHp - prev.currentHp; } addLog(`使用了 [${item.name}]，恢复 ${recovered} 点气血`, 'success'); if (item.cure) { addLog(`[${item.name}] 发挥药效，毒素已解`, 'success'); } return { ...prev, currentHp: newHp, bag: newBag }; });
-             };
-             const handleUnequip = (type) => { updatePlayer(prev => { const newSlots = { ...prev.slots }; const item = newSlots[type]; if (item) { addLog(`卸下了 [${item.name}]`, 'info'); newSlots[type] = null; } return { ...prev, slots: newSlots }; }); };
-             const handleSell = (e, item, index) => { e.stopPropagation(); const sellPrice = Math.floor(item.price / 2); updatePlayer(prev => { const newSlots = { ...prev.slots }; if (newSlots.weapon === item) newSlots.weapon = null; if (newSlots.clothes === item) newSlots.clothes = null; if (newSlots.guard === item) newSlots.guard = null; const newBag = [...prev.bag]; newBag.splice(index, 1); return { ...prev, money: prev.money + sellPrice, bag: newBag, slots: newSlots }; }); addLog(`售出 [${item.name}]，获得 ${sellPrice} 银两`, 'info'); };
-             
-             const handleDefeat = () => { if (gameState === 'RESTING') return; setGameState('RESTING'); setRestTime(REST_DURATION); addLog('布局被破，暂避锋芒...', 'error'); };
-             const nextStage = () => { if (stage >= 10) { setGameState('GAME_COMPLETED'); return; } setStage(s => s + 1); const nextS = stage + 1; spawnEnemy(nextS); };
-             const selectStage = (s) => { setShowMap(false); setStage(s); spawnEnemy(s); };
-             const summonSelectedPartner = (partner) => { setShowPartnerSelect(false); setCurrentPartner(partner); if (gameState !== 'BATTLE') return; const stats = getPlayerStats(player); let damage = stats.atk * 4; setPartnerActive(true); updatePlayer(prev => ({ ...prev, lastPartnerUseTime: Date.now() })); setPartnerCooldownTimer(partner.cooldown); addLog(`${partner.name} 助战！发动 [${partner.skillName}]`, 'loot'); addFloatingText(`${partner.skillName}!`, 'crit', 'player'); updateEnemy(prev => { const newHp = Math.max(0, prev.currentHp - damage); setTimeout(() => addFloatingText(`-${damage}`, 'crit', 'enemy'), 300); return { ...prev, currentHp: newHp }; }); setTimeout(() => { setPartnerActive(false); setCurrentPartner(null); addLog(`${partner.name}：暂且退下。`, 'info'); }, partner.duration); };
-             const manualAttack = () => { if (gameState === 'BATTLE' && !showShop && !showPartnerSelect && !showStats && !showMap && !isAutoBattle) { handleAttackRound(); } };
-             const openPartnerSelect = () => { if (!player.partnerUnlocked) return; if (partnerCooldownTimer > 0) { addLog(`伙伴休整中...`, 'error'); return; } setShowPartnerSelect(true); };
-             const finishRest = () => { const { player, stage } = stateRef.current; const stats = getPlayerStats(player); updatePlayer(p => ({...p, currentHp: stats.maxHp})); addLog('休整完毕，重回棋局！', 'system'); spawnEnemy(stage); };
-             const instantRevive = () => { const { player } = stateRef.current; const stats = getPlayerStats(player); updatePlayer(p => ({...p, currentHp: stats.maxHp})); setRestTime(0); };
-
+             // 更新 battleLoopRef
              useEffect(() => { battleLoopRef.current = handleAttackRound; });
-             useEffect(() => { const battleInterval = setInterval(() => { const { gameState, showShop, showPartnerSelect, showStats, showMap, isAutoBattle } = stateRef.current; if (gameState === 'BATTLE' && !showShop && !showPartnerSelect && !showStats && !showMap && isAutoBattle) { if (battleLoopRef.current) battleLoopRef.current(); } }, 1500); return () => clearInterval(battleInterval); }, []); 
+
+             // 核心战斗定时器
+             useEffect(() => { 
+                const battleInterval = setInterval(() => { 
+                    const { gameState, showShop, showPartnerSelect, showStats, showMap, isAutoBattle } = stateRef.current; 
+                    if (gameState === 'BATTLE' && !showShop && !showPartnerSelect && !showStats && !showMap && isAutoBattle) { 
+                        if (battleLoopRef.current) battleLoopRef.current(); 
+                    } 
+                }, 1500); 
+                return () => clearInterval(battleInterval); 
+             }, []); 
+
              useEffect(() => { const restInterval = setInterval(() => { const { gameState, player } = stateRef.current; if (gameState !== 'RESTING') return; setRestTime(prev => { if (prev <= 0) return 0; const stats = getPlayerStats(player); updatePlayer(p => ({ ...p, currentHp: Math.min(stats.maxHp, p.currentHp + (stats.maxHp / REST_DURATION)) })); return prev - 1; }); }, 1000); return () => clearInterval(restInterval); }, []);
              useEffect(() => { if (gameState === 'RESTING' && restTime === 0) { finishRest(); } }, [restTime, gameState]);
 
-             // Render Logic
-             const stats = getPlayerStats(player);
-             const charData = CHARACTERS_DATA.find(c => c.id === player.id) || CHARACTERS_DATA[0];
-             const currentShopPool = EQUIPMENT_POOLS[player.id] || EQUIPMENT_POOLS['xie_huaian'];
-             const currentPartnerList = PARTNERS_DB[player.id] || [];
-             
+
              // --- JSX ---
              if (gameState === 'LOGIN') {
                  return (
@@ -832,6 +1093,204 @@
                             <button onClick={handleLogin} className="w-full bg-[#d4af37] text-[#3e2323] py-3 rounded font-bold hover:bg-[#b45309] transition-all flex items-center justify-center gap-2"><KeyRound size={20} /> 开启画卷</button>
                         </div>
                     </div>
+                 );
+             }
+             
+             // --- ADMIN PANEL ---
+             if (gameState === 'ADMIN') {
+                 return (
+                     <div className="w-full h-screen bg-[#f4f0e6] text-[#4a3b32] font-serif p-6 overflow-y-auto">
+                        <div className="max-w-4xl mx-auto bg-white p-6 rounded shadow-lg border border-[#a89f91]">
+                            <div className="flex justify-between items-center mb-6 border-b pb-4">
+                                <h2 className="text-2xl font-bold flex items-center gap-2"><Settings className="text-[#b91c1c]"/> 天机阁 - 数据配置</h2>
+                                <div className="flex gap-2">
+                                     <div className="flex items-center gap-2 text-xs text-gray-500 mr-4">
+                                         <Cloud size={14} className={currentUser ? "text-green-600" : "text-gray-400"} />
+                                         <span className={currentUser ? "text-green-600 font-bold" : "text-gray-400"}>{currentUser ? '云端已连接' : '离线模式'}</span>
+                                     </div>
+                                     <button onClick={() => {saveConfig(); setGameState('LOGIN');}} className="bg-[#15803d] text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-[#166534]"><Save size={18}/> 保存并返回</button>
+                                </div>
+                            </div>
+                            
+                            {/* Manual Cloud Connection for Offline Mode */}
+                            {!currentUser && (
+                                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                                    <h3 className="font-bold text-yellow-800 mb-2 flex items-center gap-2"><Link size={16}/> 手动连接私有云</h3>
+                                    <p className="mb-2 text-yellow-700">检测到当前环境未注入 Firebase 配置。如需多端同步，请粘贴您的 Firebase 配置 JSON：</p>
+                                    <textarea 
+                                        className="w-full h-24 p-2 border rounded text-xs font-mono mb-2" 
+                                        placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "..."}'
+                                        value={firebaseConfigInput}
+                                        onChange={(e) => setFirebaseConfigInput(e.target.value)}
+                                    />
+                                    <button onClick={handleConnectCloud} className="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-700">连接云端</button>
+                                </div>
+                            )}
+
+                            <div className="flex gap-4 mb-6">
+                                <button onClick={() => setAdminTab('DIALOGUES')} className={`px-4 py-2 rounded font-bold ${adminTab==='DIALOGUES' ? 'bg-[#b91c1c] text-white' : 'bg-gray-200'}`}>对话配置</button>
+                                <button onClick={() => setAdminTab('EMOTES')} className={`px-4 py-2 rounded font-bold ${adminTab==='EMOTES' ? 'bg-[#b91c1c] text-white' : 'bg-gray-200'}`}>表情配置</button>
+                            </div>
+
+                            {adminTab === 'DIALOGUES' && (
+                                <div className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 border-r pr-4 max-h-[60vh] overflow-y-auto">
+                                            <h3 className="font-bold mb-2">选择角色/敌人</h3>
+                                            {Object.keys(customConfig.dialogues).map(key => (
+                                                <div key={key} onClick={() => setEditingKey(key)} className={`p-2 cursor-pointer hover:bg-gray-100 rounded ${editingKey === key ? 'bg-[#fef3c7] font-bold text-[#b45309]' : ''}`}>
+                                                    {key}
+                                                </div>
+                                            ))}
+                                            <div className="mt-4 pt-4 border-t">
+                                                <input placeholder="新角色名..." className="border p-1 w-full mb-1" id="newDialogueKey" />
+                                                <button onClick={() => {
+                                                    const key = document.getElementById('newDialogueKey').value;
+                                                    if(key && !customConfig.dialogues[key]) {
+                                                        setCustomConfig({...customConfig, dialogues: {...customConfig.dialogues, [key]: []}});
+                                                        setEditingKey(key);
+                                                        document.getElementById('newDialogueKey').value = '';
+                                                    }
+                                                }} className="w-full bg-[#57534e] text-white p-1 rounded text-xs flex items-center justify-center gap-1"><Plus size={12}/> 新增角色</button>
+                                            </div>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            {editingKey ? (
+                                                <>
+                                                    <h3 className="font-bold mb-4 text-lg">正在编辑: <span className="text-[#b91c1c]">{editingKey}</span></h3>
+                                                    <ul className="space-y-2 mb-4">
+                                                        {customConfig.dialogues[editingKey].map((text, idx) => (
+                                                            <li key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                                                                <span className="text-sm">{text}</span>
+                                                                <button onClick={() => handleDeleteDialogue(editingKey, idx)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                    <div className="flex gap-2">
+                                                        <input 
+                                                            value={newItemInput}
+                                                            onChange={(e) => setNewItemInput(e.target.value)}
+                                                            className="flex-1 border p-2 rounded" 
+                                                            placeholder="输入新台词..." 
+                                                            onKeyPress={(e) => e.key === 'Enter' && handleAddDialogue()}
+                                                        />
+                                                        <button onClick={handleAddDialogue} className="bg-[#d4af37] text-white px-4 py-2 rounded font-bold">添加</button>
+                                                    </div>
+                                                </>
+                                            ) : <div className="text-gray-400 text-center mt-20">请在左侧选择要编辑的对象</div>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {adminTab === 'EMOTES' && (
+                                <div className="space-y-6">
+                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                         {/* Col 1: Category */}
+                                         <div className="md:col-span-1 border-r pr-4">
+                                             <h3 className="font-bold mb-2">1. 选择分类</h3>
+                                             {['defaults', 'players', 'enemies'].map(cat => (
+                                                 <div key={cat} onClick={() => { setEmoteCategory(cat); setEmoteKey(null); }} className={`p-2 cursor-pointer hover:bg-gray-100 rounded ${emoteCategory === cat ? 'bg-[#fef3c7] font-bold text-[#b45309]' : ''}`}>
+                                                     {cat === 'defaults' ? '默认通用' : cat === 'players' ? '主角专属' : '敌人专属'}
+                                                 </div>
+                                             ))}
+                                         </div>
+
+                                         {/* Col 2: Key or Type */}
+                                         <div className="md:col-span-1 border-r pr-4 max-h-[60vh] overflow-y-auto">
+                                             {emoteCategory === 'defaults' ? (
+                                                 <div>
+                                                     <h3 className="font-bold mb-2">2. 选择动作类型</h3>
+                                                     {['attack', 'hit', 'dodge', 'crit', 'skill', 'win', 'lose'].map(type => (
+                                                         <div key={type} onClick={() => setEmoteType(type)} className={`p-2 cursor-pointer hover:bg-gray-100 rounded ${emoteType === type ? 'bg-[#dcfce7] font-bold text-[#15803d]' : ''}`}>
+                                                             {type}
+                                                         </div>
+                                                     ))}
+                                                 </div>
+                                             ) : (
+                                                 <div>
+                                                     <h3 className="font-bold mb-2">2. 选择角色/敌人</h3>
+                                                     {Object.keys(customConfig.emotes[emoteCategory]).map(key => (
+                                                         <div key={key} onClick={() => setEmoteKey(key)} className={`p-2 cursor-pointer hover:bg-gray-100 rounded ${emoteKey === key ? 'bg-[#dcfce7] font-bold text-[#15803d]' : ''}`}>
+                                                             {key}
+                                                         </div>
+                                                     ))}
+                                                     
+                                                     {/* Add new entity button */}
+                                                     <div className="mt-4 pt-4 border-t">
+                                                         <input id="newEmoteEntityInput" placeholder="新名称..." className="border p-1 w-full mb-1 text-sm"/>
+                                                         <button onClick={() => {
+                                                             const name = document.getElementById('newEmoteEntityInput').value;
+                                                             if(name && !customConfig.emotes[emoteCategory][name]) {
+                                                                 const newEmotes = {...customConfig.emotes};
+                                                                 newEmotes[emoteCategory][name] = { attack: [] };
+                                                                 setCustomConfig({...customConfig, emotes: newEmotes});
+                                                                 setEmoteKey(name);
+                                                                 document.getElementById('newEmoteEntityInput').value = '';
+                                                             }
+                                                         }} className="w-full bg-[#57534e] text-white p-1 rounded text-xs flex items-center justify-center gap-1"><Plus size={12}/> 新增</button>
+                                                     </div>
+                                                 </div>
+                                             )}
+                                         </div>
+
+                                         {/* Col 3: Emote List & Type Selection for non-defaults */}
+                                         <div className="md:col-span-1">
+                                             {emoteCategory !== 'defaults' && !emoteKey ? (
+                                                 <div className="text-gray-400 text-center mt-20">请在中间栏选择对象</div>
+                                             ) : (
+                                                 <>
+                                                     {emoteCategory !== 'defaults' && (
+                                                         <div className="mb-4">
+                                                             <h3 className="font-bold mb-2">3. 选择动作类型</h3>
+                                                             <select value={emoteType} onChange={(e) => setEmoteType(e.target.value)} className="w-full border p-2 rounded">
+                                                                 {['attack', 'hit', 'dodge', 'crit', 'skill', 'win', 'lose'].map(type => (
+                                                                     <option key={type} value={type}>{type}</option>
+                                                                 ))}
+                                                             </select>
+                                                         </div>
+                                                     )}
+                                                     
+                                                     <h3 className="font-bold mb-2 flex justify-between">
+                                                         表情列表 
+                                                         <span className="text-xs font-normal text-gray-500 self-center">({emoteType})</span>
+                                                     </h3>
+                                                     <div className="space-y-2 mb-4 max-h-[40vh] overflow-y-auto">
+                                                         {getCurrentEmoteList().map((item, idx) => (
+                                                             <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                                                                 {isImageUrl(item) ? (
+                                                                     <div className="flex items-center gap-2">
+                                                                        <ImageIcon size={14} className="text-blue-500"/>
+                                                                        <img src={item} alt="preview" className="w-8 h-8 object-contain bg-gray-200 rounded"/>
+                                                                        <span className="text-xs text-gray-400 truncate w-24">{item}</span>
+                                                                     </div>
+                                                                 ) : (
+                                                                     <span className="text-lg">{item}</span>
+                                                                 )}
+                                                                 <button onClick={() => handleDeleteEmote(idx)} className="text-red-500 hover:bg-red-50 p-1 rounded"><Trash2 size={16}/></button>
+                                                             </div>
+                                                         ))}
+                                                         {getCurrentEmoteList().length === 0 && <div className="text-xs text-gray-400 italic">暂无配置</div>}
+                                                     </div>
+                                                     
+                                                     <div className="flex gap-2">
+                                                         <input 
+                                                             value={newEmoteInput}
+                                                             onChange={(e) => setNewEmoteInput(e.target.value)}
+                                                             className="flex-1 border p-2 rounded text-sm" 
+                                                             placeholder="输入Emoji或图片URL..." 
+                                                             onKeyPress={(e) => e.key === 'Enter' && handleAddEmote()}
+                                                         />
+                                                         <button onClick={handleAddEmote} className="bg-[#d4af37] text-white px-3 py-2 rounded font-bold text-sm">添加</button>
+                                                     </div>
+                                                 </>
+                                             )}
+                                         </div>
+                                     </div>
+                                </div>
+                            )}
+                        </div>
+                     </div>
                  );
              }
              
@@ -848,13 +1307,59 @@
                  return (
                     <div className="w-full h-screen bg-[#1c1917]/90 flex items-center justify-center backdrop-blur-sm">
                         <div className="bg-[#f4f0e6] p-10 rounded-sm border-8 border-[#2a231d] shadow-2xl text-center max-w-md w-full transform rotate-1 relative">
+                            <button onClick={() => setGameState('ADMIN')} className="absolute top-4 right-4 text-gray-400 hover:text-[#b91c1c]" title="天机阁配置"><Settings size={20}/></button>
                             <h1 className="text-5xl font-black mb-4 text-[#2a231d] tracking-widest font-serif" style={{textShadow: '2px 2px 0px rgba(0,0,0,0.1)'}}>{player.id === 'xie_huaian' ? '长安二十四计' : '莲花楼奇闻'}</h1>
                             <p className="text-[#78716c] mb-8 font-serif italic text-lg">— 纸上权谋 —</p>
                             <div className="bg-[#e6ded5] p-4 rounded-sm border border-[#d6d3cd] text-left text-sm mb-8 font-serif leading-loose text-[#444]">
                                 <p><span className="font-bold text-[#8b2e2e]">主角：</span> {player.name}</p>
                                 <p><span className="font-bold text-[#8b2e2e]">能力：</span> {player.id === 'xie_huaian' ? '运筹帷幄，借刀杀人' : '相夷太剑，扬州慢'}</p>
                             </div>
-                            <button onClick={() => { spawnEnemy(1); }} className="w-full bg-[#8b2e2e] text-[#f4f0e6] py-3 rounded-sm font-bold hover:bg-[#7f1d1d] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 border-2 border-[#fecaca] shadow-lg text-lg font-serif"><Feather size={20} /> 入局</button>
+                            <button onClick={() => { setGameState('INTRO'); }} className="w-full bg-[#8b2e2e] text-[#f4f0e6] py-3 rounded-sm font-bold hover:bg-[#7f1d1d] hover:scale-[1.02] transition-all flex items-center justify-center gap-2 border-2 border-[#fecaca] shadow-lg text-lg font-serif"><Feather size={20} /> 确认身份</button>
+                        </div>
+                    </div>
+                 );
+             }
+             
+             if (gameState === 'INTRO') {
+                 const isXie = player.id === 'xie_huaian';
+                 return (
+                    <div className="w-full h-screen bg-[#2a231d] flex items-center justify-center text-[#e6dcca] font-serif p-6">
+                        <div className="max-w-2xl w-full flex flex-col items-center animate-pop-in">
+                             <div className="w-full h-64 border-4 border-[#8b2e2e] bg-[#f4f0e6] mb-8 relative flex items-center justify-center overflow-hidden shadow-2xl">
+                                  <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/rice-paper.png')]"></div>
+                                  <div className="z-10 text-[#2a231d] text-center p-8">
+                                      <h2 className="text-4xl font-bold mb-4 tracking-[0.5em] border-b-2 border-[#8b2e2e] pb-4 inline-block">
+                                          {isXie ? '长安 · 诡局' : '江湖 · 归途'}
+                                      </h2>
+                                      <p className="text-lg leading-loose italic">
+                                          {isXie 
+                                            ? "“这长安城的雨，洗不净人心的贪欲。”" 
+                                            : "“去去重去去，来来来来来。”"}
+                                      </p>
+                                  </div>
+                                  <div className="absolute -right-10 -bottom-10 opacity-20 transform scale-[2] rotate-12 pointer-events-none">
+                                      <PaperStickman color="#2a231d" charVisual={player.visual} />
+                                  </div>
+                             </div>
+
+                             <div className="mb-10 text-center space-y-4 text-[#a89f91]">
+                                 <p className="text-xl">
+                                     {isXie 
+                                       ? "贞观年间，暗流涌动。身为淮南主簿，你手无寸铁，却要以这二十四计，在此死局中杀出一条生路。" 
+                                       : "昔日剑神，今朝游医。拖着一座莲花楼，带着一只黄狗，本欲了却残生，奈何江湖风雨总是不肯放过你。"}
+                                 </p>
+                             </div>
+
+                             <button 
+                                onClick={() => spawnEnemy(1)} 
+                                className="group relative px-12 py-4 bg-[#8b2e2e] text-[#f4f0e6] text-2xl font-bold tracking-widest shadow-[0_0_20px_rgba(139,46,46,0.5)] hover:bg-[#a93838] transition-all transform hover:scale-105"
+                             >
+                                 <span className="relative z-10 flex items-center gap-3">
+                                     {isXie ? <Scroll size={28}/> : <Sword size={28}/>}
+                                     {isXie ? '入 长 安' : '入 江 湖'}
+                                 </span>
+                                 <div className="absolute inset-0 border-2 border-[#f4f0e6] transform scale-95 group-hover:scale-100 transition-transform"></div>
+                             </button>
                         </div>
                     </div>
                  );
@@ -863,14 +1368,13 @@
              return (
                 <div className="w-full h-screen bg-[#f4f0e6] text-[#4a3b32] font-serif overflow-hidden flex flex-col lg:flex-row select-none">
                     {/* 左侧 (Desktop) / 底部 (Mobile) 面板切换逻辑 */}
-                    {/* Mobile Navigation Tabs */}
                     <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#2a231d] border-t-2 border-[#3e342b] flex justify-around p-2 z-50 text-[#e6dcca]">
                         <button onClick={() => setActiveMobileTab('STATS')} className={`flex flex-col items-center ${activeMobileTab === 'STATS' ? 'text-[#d4af37]' : ''}`}><User size={20} /><span className="text-[10px]">案卷</span></button>
                         <button onClick={() => setActiveMobileTab('BATTLE')} className={`flex flex-col items-center ${activeMobileTab === 'BATTLE' ? 'text-[#d4af37]' : ''}`}><Sword size={24} /><span className="text-[10px]">对决</span></button>
                         <button onClick={() => setActiveMobileTab('LOGS')} className={`flex flex-col items-center ${activeMobileTab === 'LOGS' ? 'text-[#d4af37]' : ''}`}><MessageCircle size={20} /><span className="text-[10px]">传音</span></button>
                     </div>
 
-                    {/* 左侧面板 (Desktop: Always / Mobile: Conditionally) */}
+                    {/* 左侧面板 */}
                     <div className={`w-full lg:w-72 bg-[#2a231d] text-[#e6dcca] p-5 flex flex-col border-r-4 border-[#3e342b] shadow-2xl z-20 relative ${activeMobileTab === 'STATS' ? 'flex h-[calc(100vh-60px)]' : 'hidden lg:flex'}`}>
                         <div className="absolute top-0 right-0 p-2 opacity-10"><Scroll size={64} /></div>
                         <div className="mb-4 border-b border-[#5d4d3d] pb-2 cursor-pointer group hover:bg-[#3e3228] p-2 -mx-2 rounded transition-colors relative" onClick={() => setShowStats(true)} title="点击查看详情">
@@ -889,32 +1393,27 @@
                         <div className="h-1/4 overflow-hidden flex flex-col border-t border-[#5d4d3d] pt-3"><h2 className="text-sm font-bold flex items-center gap-2 mb-2 text-[#a89f91]"><Briefcase size={14} /> 行囊</h2><div className="overflow-y-auto space-y-1.5 pr-2 custom-scrollbar">{player.bag.length === 0 && <div className="text-xs text-[#555] text-center mt-4">空空如也</div>}{player.bag.map((item, idx) => { const isEquipped = player.slots.weapon === item || player.slots.clothes === item || player.slots.guard === item; const isConsumable = item.type === 'consumable'; return (<div key={idx} onClick={() => handleEquip(item, idx)} className={`px-2 py-1.5 rounded-sm border text-xs flex justify-between items-center cursor-pointer transition-all hover:bg-[#3e3228] ${isEquipped ? 'bg-[#3e2323] border-[#8b2e2e]' : 'bg-[#352b22] border-[#4a3b32]'}`}><span className={`${item.rarity===2 ? 'text-[#eebbcb]' : 'text-[#d6d3cd]'} ${isEquipped ? 'font-bold' : ''}`}>{item.name} {isEquipped && <span className="text-[8px] text-[#8b2e2e] bg-[#000]/20 px-1 rounded ml-1">[已装备]</span>}{isConsumable && <span className="text-[8px] text-[#10b981] bg-[#000]/20 px-1 rounded ml-1">[药品]</span>}</span><div className="flex items-center gap-2"><span className="text-[#888] scale-90">{item.type === 'consumable' ? `回+${item.heal}` : item.atk > 0 ? `+${item.atk}攻` : `+${item.hp}血`}</span>{!isEquipped && <button onClick={(e) => handleSell(e, item, idx)} className="bg-[#5d4d3d] text-[#d6d3cd] px-1 rounded text-[9px] hover:bg-[#b91c1c]">[售]</button>}</div></div>);})}</div></div>
                     </div>
 
-                    {/* 中间 */}
-                    <div className={`flex-1 flex flex-col relative bg-[#f4f0e6] shadow-inner ${activeMobileTab === 'BATTLE' ? 'flex h-[calc(100vh-60px)] lg:h-auto' : 'hidden lg:flex'}`}>
-                         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E")`}}></div>
-                         {gameState === 'RESTING' && <div className="absolute inset-0 bg-[#2a303c]/60 z-10 pointer-events-none backdrop-grayscale-[0.5] transition-all duration-1000"></div>}
-                         <div className="absolute top-8 w-full text-center z-10"><div className="inline-block border-2 border-[#8b2e2e] text-[#8b2e2e] px-6 py-2 font-serif font-bold text-xl tracking-widest bg-[#f4f0e6]/80 shadow-sm transform -rotate-1 rounded-sm relative"><div className="absolute inset-0 border border-[#8b2e2e] m-1 pointer-events-none"></div>{STORY_CONFIGS[player.id]?.[stage]?.title || `第 ${stage} 局`}</div></div>
-                         <div className="flex-1 relative flex items-center justify-center overflow-hidden">
-                             <div className="absolute bottom-1/4 w-3/4 h-[1px] bg-[#4a3b32]/20"></div>
-                             {/* Player */}
-                             <div className="absolute left-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={playerRef}>
-                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#4a3b32] bg-[#f4f0e6] border border-[#a89f91] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm">{player.name} <span className="text-[#b45309] text-xs">Lv.{player.level}</span></div>
-                                 {partnerActive && currentPartner && (<div ref={partnerRef} className="absolute left-[-80px] bottom-0 w-24 h-32 md:w-32 md:h-40 transition-all duration-500" style={{zIndex: 5}}><PaperStickman color={currentPartner.color} equipment={{}} charVisual={currentPartner.visual}/></div>)}
-                                 <div className="w-24 h-32 md:w-32 md:h-40 relative transform -rotate-2 origin-bottom transition-all duration-500 hover:scale-105"><PaperStickman color="#2d2d2d" slots={player.slots} isSleeping={gameState === 'RESTING'} charVisual={player.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div>
-                                 {floatingTexts.filter(t => t.target === 'player').map(t => (<div key={t.id} className={`absolute -top-20 left-1/2 -translate-x-1/2 font-bold animate-float-up pointer-events-none whitespace-nowrap font-serif ${t.type==='success'?'text-[#15803d] text-3xl drop-shadow-sm':'text-[#b91c1c] text-3xl drop-shadow-sm'}`}>{t.value}</div>))}
-                             </div>
-                             {gameState === 'BATTLE' && (<div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl font-black text-[#8b2e2e]/10 pointer-events-none select-none font-serif">{player.id === 'xie_huaian' ? '谋' : '剑'}</div>)}
-                             {/* Enemy */}
-                             {gameState !== 'MENU' && gameState !== 'RESTING' && (<div className="absolute right-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={enemyRef}><div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#f4f0e6] bg-[#2a231d] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm border border-[#4a3b32]">{enemy.name}</div><div className={`w-24 h-32 md:w-32 md:h-40 relative transform rotate-2 origin-bottom transition-all duration-500 ${enemy.isBoss ? 'scale-125' : ''}`}><PaperStickman color="#3e2323" isEnemy={true} charVisual={enemy.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div><div className="absolute -bottom-6 w-full h-1.5 bg-[#d6d3cd] rounded-full overflow-hidden border border-[#a89f91]"><div className="h-full bg-[#b91c1c]" style={{width: `${(enemy.currentHp / enemy.maxHp) * 100}%`}}></div></div>{floatingTexts.filter(t => t.target === 'enemy').map(t => (<div key={t.id} className={`absolute -top-20 left-1/2 -translate-x-1/2 font-bold pointer-events-none animate-float-up whitespace-nowrap font-serif ${t.type === 'crit' ? 'text-5xl text-[#d97706] drop-shadow-md' : 'text-3xl text-[#1f2937]'}`}>{t.value}</div>))}</div>)}
-                         </div>
-                         {/* Bottom Logs */}
-                         <div className="h-32 bg-[#e6ded5] border-t-2 border-[#d6d3cd] p-3 font-serif text-sm relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] flex justify-between"><div className="flex-1 overflow-y-auto custom-scrollbar">{logs.map(log => (<div key={log.id} className={`mb-1 ${log.type==='damage'?'text-[#991b1b]':log.type==='loot'?'text-[#7e22ce] font-bold':log.type==='error'?'text-red-700 font-bold':log.type==='success'?'text-[#15803d] font-bold':'text-[#57534e]'}`}>{log.text}</div>))}<div ref={logsEndRef} /></div><div className="ml-4 flex gap-3 items-center"><button onClick={() => updatePlayer(prev => { const newVal = !stateRef.current.isAutoBattle; setIsAutoBattle(newVal); return prev; })} className={`w-12 h-12 rounded-full border-2 shadow-md flex items-center justify-center transition-all ${isAutoBattle ? 'bg-[#15803d] border-[#166534] text-white' : 'bg-[#a8a29e] border-[#57534e] text-white'}`} title={isAutoBattle ? "切换为手动" : "切换为自动"}>{isAutoBattle ? <Zap size={20} /> : <MousePointer size={20} />}</button><span className="text-[10px] text-[#57534e] mt-1 font-bold hidden md:block">{isAutoBattle ? "自动中" : "手动"}</span>{!isAutoBattle && gameState === 'BATTLE' && (<button onClick={manualAttack} className="w-14 h-14 rounded-full bg-[#b91c1c] border-4 border-[#7f1d1d] shadow-lg flex flex-col items-center justify-center text-white hover:scale-110 active:scale-95 transition-all animate-pulse"><Sword size={24} /><span className="text-[10px] font-bold">出招</span></button>)}<button onClick={() => setShowMap(true)} className="w-12 h-12 rounded-full bg-[#57534e] border-2 border-[#a89f91] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Map size={18} /><span className="text-[9px] font-bold">舆图</span></button><button onClick={() => setShowShop(true)} className="w-12 h-12 rounded-full bg-[#3e2323] border-2 border-[#8b2e2e] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Store size={18} /><span className="text-[9px] font-bold">鬼市</span></button><button onClick={openPartnerSelect} disabled={partnerCooldownTimer > 0 || !player.partnerUnlocked || gameState !== 'BATTLE'} className={`w-12 h-12 rounded-full border-2 shadow-lg flex flex-col items-center justify-center relative overflow-hidden transition-all ${!player.partnerUnlocked ? 'bg-gray-400 border-gray-500 opacity-50 cursor-not-allowed' : partnerCooldownTimer > 0 ? 'bg-gray-300 border-gray-400 cursor-wait' : 'bg-[#d4af37] border-[#b45309] hover:scale-110 active:scale-95 cursor-pointer'}`}>{partnerCooldownTimer > 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[10px] font-bold z-10">{Math.ceil(partnerCooldownTimer)}</div>}<Users size={18} className={player.partnerUnlocked ? "text-[#3e2323]" : "text-gray-600"} /><span className="text-[9px] text-[#57534e] mt-0.5 font-bold hidden md:block">{!player.partnerUnlocked ? "未识" : "助战"}</span></button></div></div>
-                    </div>
-
-                    {/* Right Side */}
+                    {/* Right Side (密语栏) */}
                     <div className={`w-full lg:w-72 bg-[#fdfbf7] border-l-4 border-[#d6d3cd] flex flex-col shadow-xl z-20 relative ${activeMobileTab === 'LOGS' ? 'flex h-[calc(100vh-60px)]' : 'hidden lg:flex'}`}>
-                        <div className="p-4 bg-[#f4f0e6] border-b border-[#e5e7eb] font-bold text-[#8b2e2e] flex items-center justify-center gap-2 font-serif text-lg tracking-widest relative"><div className="absolute left-4 opacity-50"><MessageCircle size={18} /></div>{player.id === 'xie_huaian' ? '长安密语' : '江湖传闻'}</div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#fdfbf7]" style={{backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}>{chats.map(chat => { const isPlayer = chat.speaker === 'Player'; return (<div key={chat.id} className={`flex flex-col ${isPlayer ? 'items-end' : 'items-start'} animate-pop-in group`}><span className="text-[10px] text-[#a89f91] mb-1 px-1">{isPlayer ? player.name : enemy.name}</span><div className={`relative max-w-[90%] px-4 py-3 text-sm shadow-sm border ${isPlayer ? 'bg-white border-[#d6d3cd] text-[#4a3b32] rounded-l-xl rounded-br-sm rounded-tr-xl' : 'bg-[#2a231d] border-[#4a3b32] text-[#e6dcca] rounded-r-xl rounded-bl-sm rounded-tl-xl'}`}>{chat.text}</div></div>); })}<div ref={chatsEndRef} /></div>
+                        <div className="p-4 bg-[#f4f0e6] border-b border-[#e5e7eb] font-bold text-[#8b2e2e] flex items-center justify-center gap-2 font-serif text-lg tracking-widest relative">
+                            <div className="absolute left-4 opacity-50"><MessageCircle size={18} /></div>
+                            {player.id === 'xie_huaian' ? '长安密语' : '江湖传闻'}
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#fdfbf7]" style={{backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}>
+                            {chats.length === 0 && <div className="text-center text-gray-400 text-xs mt-10">暂无消息...</div>}
+                            {chats.map(chat => { 
+                                const isPlayer = chat.speaker === 'Player'; 
+                                return (
+                                    <div key={chat.id} className={`flex flex-col ${isPlayer ? 'items-end' : 'items-start'} animate-pop-in group`}>
+                                        <span className="text-[10px] text-[#a89f91] mb-1 px-1">{isPlayer ? player.name : enemy.name}</span>
+                                        <div className={`relative max-w-[90%] px-4 py-3 text-sm shadow-sm border ${isPlayer ? 'bg-white border-[#d6d3cd] text-[#4a3b32] rounded-l-xl rounded-br-sm rounded-tr-xl' : 'bg-[#2a231d] border-[#4a3b32] text-[#e6dcca] rounded-r-xl rounded-bl-sm rounded-tl-xl'}`}>
+                                            {chat.text}
+                                        </div>
+                                    </div>
+                                ); 
+                            })}
+                            <div ref={chatsEndRef} />
+                        </div>
                     </div>
 
                     {/* Modals */}
