@@ -63,7 +63,7 @@
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { Sword, ShoppingBag, Play, Trophy, MessageCircle, Moon, Clock, Zap, Star, Shield, Skull, BookOpen, Wind, Scroll, Feather, Briefcase, User, PenTool, Users, UserPlus, Coins, X, Store, MousePointer, Power, ChevronRight, Lock, Award, Info, Heart, Map, Coffee, KeyRound, Pill, Leaf, RefreshCw, Settings, Image as ImageIcon, Smile, MessageSquare, Upload, Plus, Trash2, Cloud, Download, Share2, Radio, Wifi, WifiOff } from 'lucide-react';
+        import { Sword, ShoppingBag, Play, Trophy, MessageCircle, Moon, Clock, Zap, Star, Shield, Skull, BookOpen, Wind, Scroll, Feather, Briefcase, User, PenTool, Users, UserPlus, Coins, X, Store, MousePointer, Power, ChevronRight, Lock, Award, Info, Heart, Map, Coffee, KeyRound, Pill, Leaf, RefreshCw, Settings, Image as ImageIcon, Smile, MessageSquare, Upload, Plus, Trash2, Cloud, Download, Share2, Radio, Wifi, WifiOff, Hammer } from 'lucide-react';
         
         import { initializeApp } from 'firebase/app';
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
@@ -119,6 +119,39 @@
           { id: 'li_lianhua', name: "李莲花", realName: "李相夷", desc: "神秘神医，昔日剑神。", baseHp: 140, baseAtk: 15, baseCrit: 10, visual: 'li_lianhua' }
         ];
 
+        // 默认装备池 (现在作为可编辑数据)
+        const DEFAULT_EQUIPMENT = {
+          'xie_huaian': [
+            { id: 'xh_1', name: "削梨小刀", type: "weapon", visual: "knife", atk: 12, hp: 0, rarity: 1, price: 50, dropWeight: 50, desc: "随身携带，锋利异常" },
+            { id: 'xh_2', name: "旧铁锹", type: "weapon", visual: "shovel", atk: 45, hp: 50, rarity: 2, price: 500, dropWeight: 5, desc: "传说中的神兵，管杀管埋" },
+            { id: 'xh_3', name: "狼毫笔", type: "weapon", visual: "brush", atk: 10, hp: 0, rarity: 1, price: 40, dropWeight: 50, desc: "笔锋如刀，杀人无形" },
+            { id: 'xh_4', name: "精钢伞骨", type: "weapon", visual: "umbrella_rib", atk: 15, hp: 0, crit: 5, rarity: 1, price: 100, dropWeight: 30, desc: "从油纸伞中抽出的利器" },
+            { id: 'xh_5', name: "二十四计手札", type: "weapon", visual: "scroll", atk: 25, hp: 20, crit: 10, rarity: 2, price: 300, dropWeight: 10, desc: "记载着绝世计谋" },
+            { id: 'xh_6', name: "素麻衣", type: "clothes", visual: "robe_gray", atk: 0, hp: 50, rarity: 1, price: 50, dropWeight: 50, desc: "粗布麻衣，掩人耳目" },
+            { id: 'xh_7', name: "鹤氅", type: "clothes", visual: "robe_white", atk: 2, hp: 80, rarity: 2, price: 200, dropWeight: 15, desc: "名士之风，超凡脱俗" },
+            { id: 'xh_8', name: "护腕", type: "guard", visual: "bracer", atk: 1, hp: 30, rarity: 1, price: 60, dropWeight: 40, desc: "藏在袖中的皮质护腕" },
+            { id: 'xh_9', name: "平安扣", type: "guard", visual: "jade", atk: 0, hp: 40, rarity: 1, price: 80, dropWeight: 30, desc: "并不保平安的旧物" },
+            { id: 'xh_10', name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, dropWeight: 100, desc: "止血生肌，回复80点生命" },
+            { id: 'xh_11', name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, dropWeight: 30, desc: "稀世草药，解毒并回复50点生命" },
+            { id: 'xh_12', name: "断木剑", type: "weapon", visual: "stick", atk: 3, hp: 0, rarity: 1, price: 10, dropWeight: 60, desc: "小孩子过家家的玩具" },
+            { id: 'xh_13', name: "石子", type: "weapon", visual: "stone", atk: 5, hp: 0, rarity: 1, price: 5, dropWeight: 80, desc: "路边随处可见的石头" }
+          ],
+          'li_lianhua': [
+            { id: 'll_1', name: "少师剑", type: "weapon", visual: "sword_shaoshi", atk: 35, hp: 0, crit: 10, rarity: 2, price: 600, dropWeight: 5, desc: "昔日剑神佩剑" },
+            { id: 'll_2', name: "刎颈软剑", type: "weapon", visual: "sword_wenjing", atk: 30, hp: 0, crit: 15, rarity: 2, price: 500, dropWeight: 5, desc: "柔韧至极，防不胜防" },
+            { id: 'll_3', name: "青钢剑", type: "weapon", visual: "sword", atk: 15, hp: 0, rarity: 1, price: 80, dropWeight: 40, desc: "江湖常见的兵器" },
+            { id: 'll_4', name: "一袋糖", type: "guard", visual: "candy", atk: 0, hp: 50, rarity: 1, price: 30, dropWeight: 60, desc: "心情不好时吃一颗" },
+            { id: 'll_5', name: "狐狸精项圈", type: "guard", visual: "collar", atk: 5, hp: 60, rarity: 1, price: 120, dropWeight: 20, desc: "狗也是很凶的" },
+            { id: 'll_6', name: "游医布袍", type: "clothes", visual: "robe_green", atk: 0, hp: 80, rarity: 1, price: 100, dropWeight: 30, desc: "虽然旧了点，但很干净" },
+            { id: 'll_7', name: "莲花玉佩", type: "guard", visual: "jade_lotus", atk: 2, hp: 40, rarity: 1, price: 150, dropWeight: 20, desc: "温润养人" },
+            { id: 'll_8', name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, dropWeight: 100, desc: "止血生肌，回复80点生命" },
+            { id: 'll_9', name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, dropWeight: 30, desc: "稀世草药，解毒并回复50点生命" },
+            { id: 'll_10', name: "生锈剪刀", type: "weapon", visual: "scissors", atk: 5, hp: 0, rarity: 1, price: 10, dropWeight: 50, desc: "用来剪药材的" },
+            { id: 'll_11', name: "草鞋", type: "guard", visual: "shoes", atk: 0, hp: 10, rarity: 1, price: 5, dropWeight: 80, desc: "走两步就磨破了" }
+          ]
+        };
+
+        // 默认台词配置
         const DEFAULT_DIALOGUES = {
           xie_huaian: {
             attack: ["此局已定。", "这招如何？", "铁锹...是用来埋你的。", "人心，最是难测。", "借刀杀人。"],
@@ -143,6 +176,7 @@
           }
         };
 
+        // 默认表情包配置
         const DEFAULT_MEMES = {
             xie_huaian: {
                 crit: { type: 'text', content: '神机妙算！', enabled: true },
@@ -170,6 +204,7 @@
             }
         };
 
+        // --- 剧情配置 ---
         const STORY_CONFIGS = {
           'xie_huaian': {
             1: { enemyName: "钦差大臣", title: "初入长安", hpScale: 1.5, atkScale: 1.2 },
@@ -197,11 +232,13 @@
           }
         };
 
+        // 初始敌人列表
         const INITIAL_ENEMIES_LIST = [...new Set([
             ...Object.values(STORY_CONFIGS.xie_huaian).map(c => c.enemyName),
             ...Object.values(STORY_CONFIGS.li_lianhua).map(c => c.enemyName)
         ])];
 
+        // 技能树
         const SKILLS_DB = {
           'xie_huaian': {
             1: { id: 'jiedao', name: "借刀杀人", desc: "借力打力，受击时反弹 30% 伤害", type: "passive_reflect" },
@@ -221,6 +258,7 @@
           }
         };
 
+        // 伙伴配置
         const PARTNERS_DB = {
           'xie_huaian': [
             { id: 'ye_zheng', name: "叶铮", title: "孤傲剑客", unlockLevel: 3, desc: "一剑光寒，生死无悔", visual: 'ye_zheng', skillName: "绝尘剑", skillDesc: "极高伤害，冷却时间翻倍", duration: 60000, cooldown: PARTNER_COOLDOWN_BASE * 2, color: "#18181b" },
@@ -234,39 +272,20 @@
           ]
         };
 
-        const EQUIPMENT_POOLS = {
-          'xie_huaian': [
-            { name: "削梨小刀", type: "weapon", visual: "knife", atk: 12, hp: 0, rarity: 1, price: 50, desc: "随身携带，锋利异常" },
-            { name: "旧铁锹", type: "weapon", visual: "shovel", atk: 45, hp: 50, rarity: 2, price: 500, desc: "传说中的神兵，管杀管埋" },
-            { name: "狼毫笔", type: "weapon", visual: "brush", atk: 10, hp: 0, rarity: 1, price: 40, desc: "笔锋如刀，杀人无形" },
-            { name: "精钢伞骨", type: "weapon", visual: "umbrella_rib", atk: 15, hp: 0, crit: 5, rarity: 1, price: 100, desc: "从油纸伞中抽出的利器" },
-            { name: "二十四计手札", type: "weapon", visual: "scroll", atk: 25, hp: 20, crit: 10, rarity: 2, price: 300, desc: "记载着绝世计谋" },
-            { name: "素麻衣", type: "clothes", visual: "robe_gray", atk: 0, hp: 50, rarity: 1, price: 50, desc: "粗布麻衣，掩人耳目" },
-            { name: "鹤氅", type: "clothes", visual: "robe_white", atk: 2, hp: 80, rarity: 2, price: 200, desc: "名士之风，超凡脱俗" },
-            { name: "护腕", type: "guard", visual: "bracer", atk: 1, hp: 30, rarity: 1, price: 60, desc: "藏在袖中的皮质护腕" },
-            { name: "平安扣", type: "guard", visual: "jade", atk: 0, hp: 40, rarity: 1, price: 80, desc: "并不保平安的旧物" },
-            { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "止血生肌，回复80点生命" },
-            { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" },
-            { name: "断木剑", type: "weapon", visual: "stick", atk: 3, hp: 0, rarity: 1, price: 10, desc: "小孩子过家家的玩具" },
-            { name: "石子", type: "weapon", visual: "stone", atk: 5, hp: 0, rarity: 1, price: 5, desc: "路边随处可见的石头" }
-          ],
-          'li_lianhua': [
-            { name: "少师剑", type: "weapon", visual: "sword_shaoshi", atk: 35, hp: 0, crit: 10, rarity: 2, price: 600, desc: "昔日剑神佩剑" },
-            { name: "刎颈软剑", type: "weapon", visual: "sword_wenjing", atk: 30, hp: 0, crit: 15, rarity: 2, price: 500, desc: "柔韧至极，防不胜防" },
-            { name: "青钢剑", type: "weapon", visual: "sword", atk: 15, hp: 0, rarity: 1, price: 80, desc: "江湖常见的兵器" },
-            { name: "一袋糖", type: "guard", visual: "candy", atk: 0, hp: 50, rarity: 1, price: 30, desc: "心情不好时吃一颗" },
-            { name: "狐狸精项圈", type: "guard", visual: "collar", atk: 5, hp: 60, rarity: 1, price: 120, desc: "狗也是很凶的" },
-            { name: "游医布袍", type: "clothes", visual: "robe_green", atk: 0, hp: 80, rarity: 1, price: 100, desc: "虽然旧了点，但很干净" },
-            { name: "莲花玉佩", type: "guard", visual: "jade_lotus", atk: 2, hp: 40, rarity: 1, price: 150, desc: "温润养人" },
-            { name: "金疮药", type: "consumable", visual: "pill", heal: 80, rarity: 1, price: 30, desc: "止血生肌，回复80点生命" },
-            { name: "半边楛", type: "consumable", visual: "herb", heal: 50, cure: true, rarity: 2, price: 60, desc: "稀世草药，解毒并回复50点生命" },
-            { name: "生锈剪刀", type: "weapon", visual: "scissors", atk: 5, hp: 0, rarity: 1, price: 10, desc: "用来剪药材的" },
-            { name: "草鞋", type: "guard", visual: "shoes", atk: 0, hp: 10, rarity: 1, price: 5, desc: "走两步就磨破了" }
-          ]
-        };
-
         const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-        const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        
+        // 权重随机选择函数 (用于掉落和商店)
+        const getWeightedItem = (items) => {
+            if (!items || items.length === 0) return null;
+            const totalWeight = items.reduce((sum, item) => sum + (item.dropWeight || 10), 0);
+            let random = Math.random() * totalWeight;
+            for (const item of items) {
+                random -= (item.dropWeight || 10);
+                if (random < 0) return item;
+            }
+            return items[0]; // Fallback
+        };
+        const randomItem = (arr) => arr[Math.floor(Math.random() * arr.length)]; // 简单随机（用于对话）
 
         // --- Components ---
         const PaperStickman = ({ color = "black", isEnemy = false, slots = {}, isSleeping = false, charVisual = 'hero' }) => {
@@ -466,26 +485,28 @@
           );
         };
 
+        // --- 表情包展示组件 (位置调整：使用 pt 而非 pb 定位) ---
         const MemeOverlay = ({ meme }) => {
             if (!meme) return null;
             
-            // 回退逻辑: 简单判断 type
+            // 简单的类型判断 (回退逻辑)
             const hasImage = meme.type === 'image' && meme.content;
             const hasText = meme.type === 'text' && meme.content;
             
             if (!hasImage && !hasText) return null;
 
-            // 位置逻辑：玩家在左，敌人在右
-            // 使用 pt-[30vh] 实现垂直位置的稳定
+            // 根据来源设定对齐方式
+            // 使用 justify-start/end 区分左右
+            // 使用 pt-[30vh] 设定距离顶部的距离，这样比 items-end 更稳定，不随屏幕高度剧烈变化
             let positionClasses = "justify-center";
             let containerClasses = "";
             
             if (meme.source === 'enemy') {
                 positionClasses = "justify-end pr-[15%] md:pr-[25%]"; 
-                containerClasses = "items-end";
+                containerClasses = "items-end"; // 内容右对齐
             } else if (meme.source === 'player') {
                 positionClasses = "justify-start pl-[20%] md:pl-[25%]";
-                containerClasses = "items-start";
+                containerClasses = "items-start"; // 内容左对齐
             }
 
             return (
@@ -507,6 +528,7 @@
             );
         };
 
+        // --- 管理面板组件 ---
         const AdminPanel = ({ customData, setCustomData, onClose }) => {
             const [tab, setTab] = useState('characters');
             const [selectedEnemy, setSelectedEnemy] = useState('default');
@@ -620,6 +642,42 @@
                 });
             };
 
+            // 新增：装备管理逻辑
+            const handleEquipmentChange = (idx, field, value) => {
+                setCustomData(prev => {
+                    const newEquipment = [...prev.equipment[selectedProtagonist]];
+                    newEquipment[idx] = { ...newEquipment[idx], [field]: value };
+                    return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
+                });
+            };
+
+            const addEquipment = () => {
+                setCustomData(prev => {
+                    const newEquip = { 
+                        id: Date.now().toString(), 
+                        name: "新装备", 
+                        type: "weapon", 
+                        visual: "sword", 
+                        atk: 10, hp: 0, rarity: 1, 
+                        price: 100, 
+                        dropWeight: 50, // 默认权重
+                        desc: "一件神秘的装备" 
+                    };
+                    const newEquipment = [...prev.equipment[selectedProtagonist], newEquip];
+                    return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
+                });
+            };
+
+            const deleteEquipment = (idx) => {
+                if (confirm("确定删除这件装备吗？")) {
+                    setCustomData(prev => {
+                        const newEquipment = [...prev.equipment[selectedProtagonist]];
+                        newEquipment.splice(idx, 1);
+                        return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
+                    });
+                }
+            };
+
             const handleFileUpload = (e, callback) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -636,6 +694,7 @@
                 reader.readAsDataURL(file);
             };
 
+            // 分享功能 (发布到全服)
             const handleShare = async () => {
                 if (!db) {
                     alert("无法连接云端，请检查网络或配置");
@@ -692,8 +751,8 @@
 
             const resetData = () => {
                 if(confirm("确定要重置所有配置为默认吗？此操作不可撤销。")) {
-                    setCustomData({ characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES });
-                    localStorage.removeItem('paper_duel_custom_data_v5');
+                    setCustomData({ characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT });
+                    localStorage.removeItem('paper_duel_custom_data_v6');
                 }
             };
 
@@ -711,6 +770,7 @@
                          
                          <div className="flex flex-wrap border-b border-[#5d4d3d] text-xs">
                              <button onClick={() => setTab('characters')} className={`flex-1 py-3 px-2 font-bold transition-colors whitespace-nowrap ${tab==='characters'?'bg-[#d4af37] text-[#2a231d]':'bg-[#2a231d] text-[#888] hover:text-[#d6d3cd]'}`}>角色设定</button>
+                             <button onClick={() => setTab('equipment')} className={`flex-1 py-3 px-2 font-bold transition-colors whitespace-nowrap ${tab==='equipment'?'bg-[#d4af37] text-[#2a231d]':'bg-[#2a231d] text-[#888] hover:text-[#d6d3cd]'}`}>神兵宝库</button>
                              <button onClick={() => setTab('dialogues_player')} className={`flex-1 py-3 px-2 font-bold transition-colors whitespace-nowrap ${tab==='dialogues_player'?'bg-[#d4af37] text-[#2a231d]':'bg-[#2a231d] text-[#888] hover:text-[#d6d3cd]'}`}>主角台词</button>
                              <button onClick={() => setTab('memes_player')} className={`flex-1 py-3 px-2 font-bold transition-colors whitespace-nowrap ${tab==='memes_player'?'bg-[#d4af37] text-[#2a231d]':'bg-[#2a231d] text-[#888] hover:text-[#d6d3cd]'}`}>主角表情包</button>
                              <button onClick={() => setTab('dialogues_enemy')} className={`flex-1 py-3 px-2 font-bold transition-colors whitespace-nowrap ${tab==='dialogues_enemy'?'bg-[#b91c1c] text-[#e6dcca]':'bg-[#2a231d] text-[#888] hover:text-[#b91c1c]'}`}>敌人台词</button>
@@ -739,6 +799,45 @@
                                              </div>
                                          </div>
                                      ))}
+                                 </div>
+                             )}
+
+                             {tab === 'equipment' && (
+                                 <div className="space-y-4">
+                                     <div className="flex gap-2 mb-4 bg-[#3e342b] p-2 rounded">
+                                        <button onClick={() => setSelectedProtagonist('xie_huaian')} className={`flex-1 py-1 rounded transition-colors ${selectedProtagonist === 'xie_huaian' ? 'bg-[#d4af37] text-black font-bold' : 'text-[#888]'}`}>谢淮安的装备</button>
+                                        <button onClick={() => setSelectedProtagonist('li_lianhua')} className={`flex-1 py-1 rounded transition-colors ${selectedProtagonist === 'li_lianhua' ? 'bg-[#d4af37] text-black font-bold' : 'text-[#888]'}`}>李莲花的装备</button>
+                                     </div>
+                                     
+                                     <button onClick={addEquipment} className="w-full py-2 bg-[#b45309] text-white font-bold rounded hover:bg-[#92400e] flex items-center justify-center gap-2"><Plus size={16}/> 添加新装备</button>
+
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                         {customData.equipment[selectedProtagonist].map((item, idx) => (
+                                             <div key={item.id || idx} className="bg-[#2a231d] p-3 rounded border border-[#5d4d3d] relative group">
+                                                 <button onClick={() => deleteEquipment(idx)} className="absolute top-2 right-2 text-red-500 hover:text-red-300 opacity-50 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
+                                                 <div className="grid grid-cols-2 gap-2 mb-2">
+                                                     <div><label className="text-[10px] text-[#888]">名称</label><input type="text" value={item.name} onChange={(e) => handleEquipmentChange(idx, 'name', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div>
+                                                         <label className="text-[10px] text-[#888]">类型</label>
+                                                         <select value={item.type} onChange={(e) => handleEquipmentChange(idx, 'type', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]">
+                                                             <option value="weapon">武器</option><option value="clothes">衣服</option><option value="guard">护具</option><option value="consumable">消耗品</option>
+                                                         </select>
+                                                     </div>
+                                                 </div>
+                                                 <div className="grid grid-cols-4 gap-2 mb-2">
+                                                     <div><label className="text-[10px] text-red-400">攻</label><input type="number" value={item.atk||0} onChange={(e) => handleEquipmentChange(idx, 'atk', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div><label className="text-[10px] text-green-400">血</label><input type="number" value={item.hp||0} onChange={(e) => handleEquipmentChange(idx, 'hp', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div><label className="text-[10px] text-orange-400">暴</label><input type="number" value={item.crit||0} onChange={(e) => handleEquipmentChange(idx, 'crit', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div><label className="text-[10px] text-blue-400">回</label><input type="number" value={item.heal||0} onChange={(e) => handleEquipmentChange(idx, 'heal', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                 </div>
+                                                 <div className="grid grid-cols-2 gap-2 mb-2">
+                                                     <div><label className="text-[10px] text-[#fbbf24]">价格</label><input type="number" value={item.price} onChange={(e) => handleEquipmentChange(idx, 'price', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div><label className="text-[10px] text-purple-400" title="掉落权重：越高越容易掉">掉落权重</label><input type="number" value={item.dropWeight || (item.rarity===2?5:50)} onChange={(e) => handleEquipmentChange(idx, 'dropWeight', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                 </div>
+                                                 <div><label className="text-[10px] text-[#888]">描述</label><input type="text" value={item.desc} onChange={(e) => handleEquipmentChange(idx, 'desc', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                             </div>
+                                         ))}
+                                     </div>
                                  </div>
                              )}
 
@@ -912,7 +1011,7 @@
                                                          </div>
                                                          <div className="mt-2 bg-[#1c1917] p-2 rounded border border-[#5d4d3d] border-dashed flex items-center justify-center min-h-[60px]">
                                                              {config.type === 'image' && config.content ? (
-                                                                 <img src={config.content} alt="Preview" className="max-h-16 object-contain" onError={(e) => e.target.style.display='none'} />
+                                                                 <img src={config.content} alt="Preview" className="max-h-20 object-contain" onError={(e) => e.target.style.display='none'} />
                                                              ) : (
                                                                  <span className="text-sm font-bold text-[#e6dcca]">{config.content || "预览"}</span>
                                                              )}
@@ -969,7 +1068,7 @@
 
         const PaperDuel = () => {
              const loadCustomData = () => {
-                const saved = localStorage.getItem('paper_duel_custom_data_v5');
+                const saved = localStorage.getItem('paper_duel_custom_data_v6');
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
@@ -984,14 +1083,18 @@
                                 xie_huaian: { ...DEFAULT_MEMES.xie_huaian, ...(parsed.memes?.xie_huaian || {}) },
                                 li_lianhua: { ...DEFAULT_MEMES.li_lianhua, ...(parsed.memes?.li_lianhua || {}) },
                                 enemies: { ...DEFAULT_MEMES.enemies, ...(parsed.memes?.enemies || {}) }
+                            },
+                            equipment: {
+                                xie_huaian: parsed.equipment?.xie_huaian || DEFAULT_EQUIPMENT.xie_huaian,
+                                li_lianhua: parsed.equipment?.li_lianhua || DEFAULT_EQUIPMENT.li_lianhua
                             }
                         };
                     } catch (e) {
                         console.error("Loaded corrupted data", e);
-                        return { characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES };
+                        return { characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT };
                     }
                 }
-                return { characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES };
+                return { characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT };
              };
 
              const [customData, setCustomData] = useState(loadCustomData);
@@ -1084,7 +1187,7 @@
                         const newData = snapshot.data();
                         if (newData.characters && newData.dialogues) {
                             setCustomData(newData);
-                            localStorage.setItem('paper_duel_custom_data_v5', JSON.stringify(newData));
+                            localStorage.setItem('paper_duel_custom_data_v6', JSON.stringify(newData));
                             addLog("已自动同步云端最新配置", "success");
                         }
                     }
@@ -1110,7 +1213,7 @@
              useEffect(() => { chatsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats]);
 
              useEffect(() => {
-                 localStorage.setItem('paper_duel_custom_data_v5', JSON.stringify(customData));
+                 localStorage.setItem('paper_duel_custom_data_v6', JSON.stringify(customData));
              }, [customData]);
              
              useEffect(() => {
@@ -1150,6 +1253,7 @@
                  const interval = setInterval(() => {
                      if (showShop && shopState.nextRefresh > 0) {
                          if (Date.now() > shopState.nextRefresh) {
+                            // Use player ID to refresh correct pool
                             refreshShop(player.id);
                          }
                          setShopState(prev => ({...prev}));
@@ -1227,16 +1331,19 @@
                 return { maxHp: baseHp + bonusHp + (p.level - 1) * 15, atk: baseAtk + bonusAtk + (p.level - 1) * 2, crit: baseCrit + bonusCrit, bonusAtk, bonusHp, bonusCrit };
              };
              
+             // --- Generate Shop Items (Using customData) ---
              const generateShopItems = (pid) => {
-                 const pool = EQUIPMENT_POOLS[pid] || EQUIPMENT_POOLS['xie_huaian'];
-                 const commons = pool.filter(i => i.rarity === 1);
-                 const rares = pool.filter(i => i.rarity === 2);
+                 // Use customData.equipment if available, fallback to defaults just in case
+                 const currentData = stateRef.current.customData;
+                 const pool = (currentData.equipment && currentData.equipment[pid]) ? currentData.equipment[pid] : DEFAULT_EQUIPMENT[pid];
+                 
+                 // Separate by rarity roughly based on dropWeight for shop generation logic
+                 // We will simplify: use weighted random to pick 6 items
                  const items = [];
                  for (let i = 0; i < 6; i++) {
-                     if (Math.random() < 0.05 && rares.length > 0) {
-                         items.push({ ...randomItem(rares), id: Date.now() + i }); 
-                     } else {
-                         items.push({ ...randomItem(commons), id: Date.now() + i });
+                     const picked = getWeightedItem(pool);
+                     if (picked) {
+                        items.push({ ...picked, id: Date.now() + i }); 
                      }
                  }
                  return items;
@@ -1482,11 +1589,27 @@
                 const xpGain = 40 + (stage * 15) + (defeatedEnemy.isBoss ? 150 : 0); const moneyGain = randomInt(20, 50) + (defeatedEnemy.isBoss ? 100 : 0);
                 handleGainExp(xpGain); updatePlayer(prev => ({...prev, money: prev.money + moneyGain})); addLog(`获得 ${xpGain} 阅历, ${moneyGain} 银两`, 'info');
                 
+                // --- 使用自定义装备池掉落逻辑 ---
                 if (Math.random() < 0.25) {
-                  const pool = EQUIPMENT_POOLS[player.id] || EQUIPMENT_POOLS['xie_huaian'];
-                  const newItem = randomItem(pool);
-                  let canAdd = true; if (newItem.type !== 'consumable') { if (player.bag.some(i => i.name === newItem.name)) canAdd = false; }
-                  if (canAdd) { addLog(`缴获: [${newItem.name}]`, 'loot'); updatePlayer(prev => ({ ...prev, bag: [...prev.bag, newItem] })); } else { const sellPrice = Math.floor(newItem.price / 2); addLog(`发现 [${newItem.name}] (折算 ${sellPrice} 两)`, 'info'); updatePlayer(prev => ({...prev, money: prev.money + sellPrice})); }
+                  const currentData = stateRef.current.customData;
+                  const pool = (currentData.equipment && currentData.equipment[player.id]) ? currentData.equipment[player.id] : DEFAULT_EQUIPMENT[player.id];
+                  
+                  const newItem = getWeightedItem(pool);
+                  
+                  if (newItem) {
+                      let canAdd = true; 
+                      if (newItem.type !== 'consumable') { 
+                          if (player.bag.some(i => i.name === newItem.name)) canAdd = false; 
+                      }
+                      if (canAdd) { 
+                          addLog(`缴获: [${newItem.name}]`, 'loot'); 
+                          updatePlayer(prev => ({ ...prev, bag: [...prev.bag, newItem] })); 
+                      } else { 
+                          const sellPrice = Math.floor(newItem.price / 2); 
+                          addLog(`发现 [${newItem.name}] (折算 ${sellPrice} 两)`, 'info'); 
+                          updatePlayer(prev => ({...prev, money: prev.money + sellPrice})); 
+                      }
+                  }
                 }
              };
 
@@ -1622,8 +1745,7 @@
                              <div className="absolute left-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={playerRef}>
                                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#4a3b32] bg-[#f4f0e6] border border-[#a89f91] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm">{player.name} <span className="text-[#b45309] text-xs">Lv.{player.level}</span></div>
                                  
-                                 {/* 玩家表情包浮动组件 (直接嵌入) */}
-                                 {activeMeme && activeMeme.source === 'player' && <MemeOverlay meme={activeMeme} />}
+                                 {/* 删除了此处重复调用的表情包组件，修复残留阴影问题 */}
                                  
                                  {partnerActive && currentPartner && (<div ref={partnerRef} className="absolute left-[-80px] bottom-0 w-24 h-32 md:w-32 md:h-40 transition-all duration-500" style={{zIndex: 5}}><PaperStickman color={currentPartner.color} equipment={{}} charVisual={currentPartner.visual}/></div>)}
                                  <div className="w-24 h-32 md:w-32 md:h-40 relative transform -rotate-2 origin-bottom transition-all duration-500 hover:scale-105"><PaperStickman color="#2d2d2d" slots={player.slots} isSleeping={gameState === 'RESTING'} charVisual={player.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div>
@@ -1634,8 +1756,7 @@
                              {gameState !== 'MENU' && gameState !== 'RESTING' && (<div className="absolute right-[15%] bottom-[20%] md:bottom-[25%] transition-transform duration-300 z-10" ref={enemyRef}>
                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 text-sm font-bold text-[#f4f0e6] bg-[#2a231d] px-3 py-1 shadow-sm whitespace-nowrap rounded-sm border border-[#4a3b32]">{enemy.name}</div>
                                 
-                                {/* 敌人表情包浮动组件 (直接嵌入) */}
-                                {activeMeme && activeMeme.source === 'enemy' && <MemeOverlay meme={activeMeme} />}
+                                {/* 删除了此处重复调用的表情包组件，修复残留阴影问题 */}
                                 
                                 <div className={`w-24 h-32 md:w-32 md:h-40 relative transform rotate-2 origin-bottom transition-all duration-500 ${enemy.isBoss ? 'scale-125' : ''}`}><PaperStickman color="#3e2323" isEnemy={true} charVisual={enemy.visual} /><div className="absolute -bottom-3 left-2 right-2 h-3 bg-black/10 rounded-[50%] blur-sm transform scale-x-125"></div></div><div className="absolute -bottom-6 w-full h-1.5 bg-[#d6d3cd] rounded-full overflow-hidden border border-[#a89f91]"><div className="h-full bg-[#b91c1c]" style={{width: `${(enemy.currentHp / enemy.maxHp) * 100}%`}}></div></div>{floatingTexts.filter(t => t.target === 'enemy').map(t => (<div key={t.id} className={`absolute -top-20 left-1/2 -translate-x-1/2 font-bold pointer-events-none animate-float-up whitespace-nowrap font-serif ${t.type === 'crit' ? 'text-5xl text-[#d97706] drop-shadow-md' : 'text-3xl text-[#1f2937]'}`}>{t.value}</div>))}</div>)}
                          </div>
