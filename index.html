@@ -642,14 +642,15 @@
                 });
             };
 
-            // 新增：装备管理逻辑
+            // 新增：装备管理逻辑 (Fix: 安全访问，防止 undefined crash)
             const handleEquipmentChange = (idx, field, value) => {
                 setCustomData(prev => {
-                    // 安全访问
                     const currentList = prev.equipment?.[selectedProtagonist] || [];
                     const newEquipment = [...currentList];
                     if (newEquipment[idx]) {
-                        newEquipment[idx] = { ...newEquipment[idx], [field]: value };
+                         // Prevent NaN
+                         const safeValue = typeof value === 'number' && isNaN(value) ? 0 : value;
+                         newEquipment[idx] = { ...newEquipment[idx], [field]: safeValue };
                     }
                     return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
                 });
@@ -657,7 +658,6 @@
 
             const addEquipment = () => {
                 setCustomData(prev => {
-                    // 安全访问
                     const currentList = prev.equipment?.[selectedProtagonist] || [];
                     const newEquip = { 
                         id: Date.now().toString(), 
@@ -818,15 +818,15 @@
                                      <button onClick={addEquipment} className="w-full py-2 bg-[#b45309] text-white font-bold rounded hover:bg-[#92400e] flex items-center justify-center gap-2"><Plus size={16}/> 添加新装备</button>
 
                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                         {/* 使用可选链和默认空数组防止报错 */}
+                                         {/* 使用可选链和默认空数组防止报错，同时确保渲染安全 */}
                                          {(customData.equipment?.[selectedProtagonist] || []).map((item, idx) => (
                                              <div key={item.id || idx} className="bg-[#2a231d] p-3 rounded border border-[#5d4d3d] relative group">
                                                  <button onClick={() => deleteEquipment(idx)} className="absolute top-2 right-2 text-red-500 hover:text-red-300 opacity-50 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                                                  <div className="grid grid-cols-2 gap-2 mb-2">
-                                                     <div><label className="text-[10px] text-[#888]">名称</label><input type="text" value={item.name} onChange={(e) => handleEquipmentChange(idx, 'name', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div><label className="text-[10px] text-[#888]">名称</label><input type="text" value={item.name || ''} onChange={(e) => handleEquipmentChange(idx, 'name', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
                                                      <div>
                                                          <label className="text-[10px] text-[#888]">类型</label>
-                                                         <select value={item.type} onChange={(e) => handleEquipmentChange(idx, 'type', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]">
+                                                         <select value={item.type || 'weapon'} onChange={(e) => handleEquipmentChange(idx, 'type', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]">
                                                              <option value="weapon">武器</option><option value="clothes">衣服</option><option value="guard">护具</option><option value="consumable">消耗品</option>
                                                          </select>
                                                      </div>
@@ -838,10 +838,10 @@
                                                      <div><label className="text-[10px] text-blue-400">回</label><input type="number" value={item.heal||0} onChange={(e) => handleEquipmentChange(idx, 'heal', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
                                                  </div>
                                                  <div className="grid grid-cols-2 gap-2 mb-2">
-                                                     <div><label className="text-[10px] text-[#fbbf24]">价格</label><input type="number" value={item.price} onChange={(e) => handleEquipmentChange(idx, 'price', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                     <div><label className="text-[10px] text-[#fbbf24]">价格</label><input type="number" value={item.price||0} onChange={(e) => handleEquipmentChange(idx, 'price', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
                                                      <div><label className="text-[10px] text-purple-400" title="掉落权重：越高越容易掉">掉落权重</label><input type="number" value={item.dropWeight || (item.rarity===2?5:50)} onChange={(e) => handleEquipmentChange(idx, 'dropWeight', parseInt(e.target.value))} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
                                                  </div>
-                                                 <div><label className="text-[10px] text-[#888]">描述</label><input type="text" value={item.desc} onChange={(e) => handleEquipmentChange(idx, 'desc', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
+                                                 <div><label className="text-[10px] text-[#888]">描述</label><input type="text" value={item.desc || ''} onChange={(e) => handleEquipmentChange(idx, 'desc', e.target.value)} className="w-full bg-[#1c1917] border border-[#5d4d3d] rounded px-1 py-0.5 text-xs text-[#e6dcca]" /></div>
                                              </div>
                                          ))}
                                      </div>
