@@ -119,7 +119,7 @@
           { id: 'li_lianhua', name: "李莲花", realName: "李相夷", desc: "神秘神医，昔日剑神。", baseHp: 140, baseAtk: 15, baseCrit: 10, visual: 'li_lianhua' }
         ];
 
-        // 默认装备池 (现在作为可编辑数据)
+        // 默认装备池
         const DEFAULT_EQUIPMENT = {
           'xie_huaian': [
             { id: 'xh_1', name: "削梨小刀", type: "weapon", visual: "knife", atk: 12, hp: 0, rarity: 1, price: 50, dropWeight: 50, desc: "随身携带，锋利异常" },
@@ -645,14 +645,20 @@
             // 新增：装备管理逻辑
             const handleEquipmentChange = (idx, field, value) => {
                 setCustomData(prev => {
-                    const newEquipment = [...prev.equipment[selectedProtagonist]];
-                    newEquipment[idx] = { ...newEquipment[idx], [field]: value };
+                    // 安全访问
+                    const currentList = prev.equipment?.[selectedProtagonist] || [];
+                    const newEquipment = [...currentList];
+                    if (newEquipment[idx]) {
+                        newEquipment[idx] = { ...newEquipment[idx], [field]: value };
+                    }
                     return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
                 });
             };
 
             const addEquipment = () => {
                 setCustomData(prev => {
+                    // 安全访问
+                    const currentList = prev.equipment?.[selectedProtagonist] || [];
                     const newEquip = { 
                         id: Date.now().toString(), 
                         name: "新装备", 
@@ -660,18 +666,18 @@
                         visual: "sword", 
                         atk: 10, hp: 0, rarity: 1, 
                         price: 100, 
-                        dropWeight: 50, // 默认权重
+                        dropWeight: 50, 
                         desc: "一件神秘的装备" 
                     };
-                    const newEquipment = [...prev.equipment[selectedProtagonist], newEquip];
-                    return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
+                    return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: [...currentList, newEquip] } };
                 });
             };
 
             const deleteEquipment = (idx) => {
                 if (confirm("确定删除这件装备吗？")) {
                     setCustomData(prev => {
-                        const newEquipment = [...prev.equipment[selectedProtagonist]];
+                        const currentList = prev.equipment?.[selectedProtagonist] || [];
+                        const newEquipment = [...currentList];
                         newEquipment.splice(idx, 1);
                         return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
                     });
@@ -752,7 +758,7 @@
             const resetData = () => {
                 if(confirm("确定要重置所有配置为默认吗？此操作不可撤销。")) {
                     setCustomData({ characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT });
-                    localStorage.removeItem('paper_duel_custom_data_v6');
+                    localStorage.removeItem('paper_duel_custom_data_v7');
                 }
             };
 
@@ -812,7 +818,8 @@
                                      <button onClick={addEquipment} className="w-full py-2 bg-[#b45309] text-white font-bold rounded hover:bg-[#92400e] flex items-center justify-center gap-2"><Plus size={16}/> 添加新装备</button>
 
                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                         {customData.equipment[selectedProtagonist].map((item, idx) => (
+                                         {/* 使用可选链和默认空数组防止报错 */}
+                                         {(customData.equipment?.[selectedProtagonist] || []).map((item, idx) => (
                                              <div key={item.id || idx} className="bg-[#2a231d] p-3 rounded border border-[#5d4d3d] relative group">
                                                  <button onClick={() => deleteEquipment(idx)} className="absolute top-2 right-2 text-red-500 hover:text-red-300 opacity-50 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                                                  <div className="grid grid-cols-2 gap-2 mb-2">
@@ -1068,7 +1075,7 @@
 
         const PaperDuel = () => {
              const loadCustomData = () => {
-                const saved = localStorage.getItem('paper_duel_custom_data_v6');
+                const saved = localStorage.getItem('paper_duel_custom_data_v7');
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
@@ -1091,7 +1098,13 @@
                         };
                     } catch (e) {
                         console.error("Loaded corrupted data", e);
-                        return { characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT };
+                        // Fallback with complete structure
+                        return { 
+                            characters: DEFAULT_CHARACTERS_DATA, 
+                            dialogues: DEFAULT_DIALOGUES, 
+                            memes: DEFAULT_MEMES, 
+                            equipment: DEFAULT_EQUIPMENT 
+                        };
                     }
                 }
                 return { characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT };
@@ -1177,19 +1190,36 @@
                 return onAuthStateChanged(auth, setUser);
              }, []);
              
-             // Auto-sync effect
+             // Auto-sync effect with Robust Data Merging
              useEffect(() => {
                 if (!user || !db) return;
                 
-                // Listen for global updates
                 const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'game_configs', GLOBAL_CONFIG_ID), (snapshot) => {
                     if (snapshot.exists()) {
                         const newData = snapshot.data();
-                        if (newData.characters && newData.dialogues) {
-                            setCustomData(newData);
-                            localStorage.setItem('paper_duel_custom_data_v6', JSON.stringify(newData));
-                            addLog("已自动同步云端最新配置", "success");
-                        }
+                        
+                        // Robust merge: ensure all root keys exist even if cloud data is partial/old
+                        const safeData = {
+                            characters: newData.characters || DEFAULT_CHARACTERS_DATA,
+                            dialogues: {
+                                xie_huaian: { ...DEFAULT_DIALOGUES.xie_huaian, ...(newData.dialogues?.xie_huaian || {}) },
+                                li_lianhua: { ...DEFAULT_DIALOGUES.li_lianhua, ...(newData.dialogues?.li_lianhua || {}) },
+                                enemies: { ...DEFAULT_DIALOGUES.enemies, ...(newData.dialogues?.enemies || {}) }
+                            },
+                            memes: {
+                                xie_huaian: { ...DEFAULT_MEMES.xie_huaian, ...(newData.memes?.xie_huaian || {}) },
+                                li_lianhua: { ...DEFAULT_MEMES.li_lianhua, ...(newData.memes?.li_lianhua || {}) },
+                                enemies: { ...DEFAULT_MEMES.enemies, ...(newData.memes?.enemies || {}) }
+                            },
+                            equipment: {
+                                xie_huaian: newData.equipment?.xie_huaian || DEFAULT_EQUIPMENT.xie_huaian,
+                                li_lianhua: newData.equipment?.li_lianhua || DEFAULT_EQUIPMENT.li_lianhua
+                            }
+                        };
+
+                        setCustomData(safeData);
+                        localStorage.setItem('paper_duel_custom_data_v7', JSON.stringify(safeData));
+                        addLog("已自动同步云端最新配置", "success");
                     }
                 }, (err) => {
                     console.error("Sync failed:", err);
@@ -1213,7 +1243,7 @@
              useEffect(() => { chatsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats]);
 
              useEffect(() => {
-                 localStorage.setItem('paper_duel_custom_data_v6', JSON.stringify(customData));
+                 localStorage.setItem('paper_duel_custom_data_v7', JSON.stringify(customData));
              }, [customData]);
              
              useEffect(() => {
@@ -1253,7 +1283,6 @@
                  const interval = setInterval(() => {
                      if (showShop && shopState.nextRefresh > 0) {
                          if (Date.now() > shopState.nextRefresh) {
-                            // Use player ID to refresh correct pool
                             refreshShop(player.id);
                          }
                          setShopState(prev => ({...prev}));
