@@ -13,13 +13,11 @@
 
     <style>
         body { margin: 0; overflow: hidden; background-color: #2a231d; touch-action: manipulation; font-family: "Songti SC", "SimSun", serif; }
-        /* 自定义滚动条 */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #d6d3cd; border-radius: 2px; }
         .bg-[#2a231d] .custom-scrollbar::-webkit-scrollbar-thumb { background: #5d4d3d; }
 
-        /* 动画定义 */
         @keyframes float-up { 0% { transform: translate(-50%, 0) scale(1); opacity: 1; } 100% { transform: translate(-50%, -60px) scale(1.2); opacity: 0; } }
         .animate-float-up { animation: float-up 0.8s ease-out forwards; }
         
@@ -42,7 +40,6 @@
         .animate-meme { animation: meme-popup 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
     
-    <!-- Import Map -->
     <script type="importmap">
         {
             "imports": {
@@ -59,7 +56,6 @@
 <body>
     <div id="root"></div>
 
-    <!-- 核心逻辑：使用 data-type="module" 启用 ES Module 导入 -->
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
@@ -86,13 +82,11 @@
 
         try {
             let firebaseConfig = null;
-            // 优先使用手动配置 (zsjh-4cd72)
             if (manualConfig.apiKey && manualConfig.apiKey.length > 0 && !manualConfig.apiKey.includes("YOUR_API_KEY")) {
                 firebaseConfig = manualConfig;
                 useManualConfig = true;
                 console.log("Using manual Firebase config (White List Mode)");
             } else if (typeof __firebase_config !== 'undefined') {
-                // 回退到环境配置
                 firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 console.log("Using environment Firebase config");
@@ -113,7 +107,7 @@
         const REST_DURATION = 60; 
         const PARTNER_UNLOCK_LEVEL = 3; 
         const PARTNER_COOLDOWN_BASE = 150; 
-        // 本地保留一些测试码，以防云端断连或管理员使用
+        // 本地保留一些测试码
         const LOCAL_INVITE_CODES = ["admin", "test", "520", "1314", "qiqi", "guoguo"]; 
         const SHOP_REFRESH_INTERVAL = 2 * 60 * 60 * 1000; 
         const SHOP_REFRESH_COST = 250; 
@@ -539,6 +533,7 @@
 
         // --- Foreword Page 组件 ---
         const ForewordPage = ({ customData, onEnter, player }) => {
+            // 安全获取配置，默认为空对象防止报错
             const allConfig = customData.foreword || DEFAULT_FOREWORD;
             // 修复潜在的 undefiend
             const safePlayerId = player ? player.id : 'xie_huaian';
@@ -547,24 +542,19 @@
             
             return (
                 <div className="w-full h-screen bg-[#1c1917] flex items-center justify-center p-6 animate-pop-in relative overflow-hidden">
-                    {/* 背景装饰 */}
                     <div className="absolute inset-0 opacity-20 pointer-events-none" style={{backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`}}></div>
-                    
                     <div className="max-w-2xl w-full bg-[#2a231d] border-4 border-[#5d4d3d] p-8 md:p-12 shadow-2xl relative flex flex-col items-center text-center">
                         <h1 className="text-4xl md:text-5xl font-black text-[#d4af37] mb-8 tracking-[0.2em] font-serif border-b-2 border-[#5d4d3d] pb-4 w-full">
                             {config.title || "纸上江湖"}
                         </h1>
-                        
                         {config.imageUrl && (
                              <div className="mb-6 w-full max-w-md border-4 border-[#3e342b] p-1 bg-[#1c1917] shadow-lg transform rotate-1">
                                 <img src={config.imageUrl} alt="前言插图" className="w-full h-auto object-cover max-h-64" />
                              </div>
                         )}
-
                         <div className="text-[#e6dcca] text-lg md:text-xl font-serif leading-relaxed whitespace-pre-wrap mb-10 opacity-90">
                             {config.content || "江湖路远，有缘再会。"}
                         </div>
-
                         <button 
                             onClick={onEnter}
                             className="group relative px-12 py-4 bg-[#8b2e2e] text-[#e6dcca] font-bold text-xl tracking-widest border-2 border-[#fecaca] shadow-[0_0_15px_rgba(139,46,46,0.5)] hover:bg-[#991b1b] hover:scale-105 transition-all duration-300"
@@ -699,7 +689,14 @@
                     if (currentList[idx]) {
                          const safeValue = typeof value === 'number' && isNaN(value) ? 0 : value;
                          currentList[idx] = { ...currentList[idx], [field]: safeValue };
-                         return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: currentList } };
+                         
+                         return { 
+                             ...prev, 
+                             equipment: { 
+                                 ...prev.equipment, 
+                                 [selectedProtagonist]: currentList 
+                             } 
+                         };
                     }
                     return prev;
                 });
@@ -718,7 +715,13 @@
                         dropWeight: 50, 
                         desc: "一件神秘的装备" 
                     };
-                    return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: [...currentList, newEquip] } };
+                    return { 
+                        ...prev, 
+                        equipment: { 
+                            ...prev.equipment, 
+                            [selectedProtagonist]: [...currentList, newEquip] 
+                        } 
+                    };
                 });
             };
 
@@ -728,7 +731,12 @@
                         const currentList = prev.equipment?.[selectedProtagonist] || [];
                         const newEquipment = [...currentList];
                         newEquipment.splice(idx, 1);
-                        return { ...prev, equipment: { ...prev.equipment, [selectedProtagonist]: newEquipment } };
+                        return { 
+                            ...prev, 
+                            equipment: { 
+                                ...prev.equipment, 
+                                [selectedProtagonist]: newEquipment } 
+                        };
                     });
                 }
             };
@@ -736,23 +744,29 @@
             const handleFileUpload = (e, callback) => {
                 const file = e.target.files[0];
                 if (!file) return;
+                
                 if (file.size > 1024 * 1024) {
                     alert("图片太大！请上传小于 1MB 的图片。");
                     return;
                 }
+
                 const reader = new FileReader();
-                reader.onload = (event) => { callback(event.target.result); };
+                reader.onload = (event) => {
+                    callback(event.target.result);
+                };
                 reader.readAsDataURL(file);
             };
 
             const handleAddEnemy = () => {
                 const name = prompt("请输入新敌人的名字：");
                 if (!name) return;
+                
                 if (allEnemies.includes(name)) {
                     alert("该敌人已存在列表中！");
                     setSelectedEnemy(name);
                     return;
                 }
+
                 setCustomData(prev => ({
                     ...prev,
                     dialogues: {
@@ -780,7 +794,7 @@
             const resetData = () => {
                 if(confirm("确定要重置所有配置为默认吗？此操作不可撤销。")) {
                     setCustomData({ characters: DEFAULT_CHARACTERS_DATA, dialogues: DEFAULT_DIALOGUES, memes: DEFAULT_MEMES, equipment: DEFAULT_EQUIPMENT, foreword: DEFAULT_FOREWORD });
-                    localStorage.removeItem('paper_duel_custom_data_v12');
+                    localStorage.removeItem('paper_duel_custom_data_v13');
                 }
             };
 
@@ -1104,7 +1118,7 @@
                                                          </div>
                                                          <div className="mt-2 bg-[#1c1917] p-2 rounded border border-[#5d4d3d] border-dashed flex items-center justify-center min-h-[60px]">
                                                              {config.type === 'image' && config.content ? (
-                                                                 <img src={config.content} alt="Preview" className="max-h-20 object-contain" onError={(e) => e.target.style.display='none'} />
+                                                                 <img src={config.content} alt="Preview" className="max-h-16 object-contain" onError={(e) => e.target.style.display='none'} />
                                                              ) : (
                                                                  <span className="text-sm font-bold text-[#e6dcca]">{config.content || "预览"}</span>
                                                              )}
@@ -1434,6 +1448,32 @@
                  }
              };
 
+             // Helper to hydrate state from save object
+             const handleLoadGame = (saved) => {
+                 if (saved && saved.player) {
+                     setPlayer(saved.player);
+                     setStage(saved.stage);
+                     setMaxUnlockedStage(saved.maxUnlockedStage);
+                     setUnlockedPartners(saved.unlockedPartners || []);
+                     if(saved.shopState) setShopState(saved.shopState);
+                     
+                     // Prepare enemy for current stage (but don't start battle yet)
+                     const currentStageConfig = STORY_CONFIGS[saved.player.id][saved.stage];
+                     const hp = Math.floor(100 * (currentStageConfig?.hpScale || 1));
+                     const atk = Math.floor(8 * (currentStageConfig?.atkScale || 1));
+                     setEnemy({ 
+                        name: currentStageConfig?.enemyName || "敌人", 
+                        maxHp: hp, 
+                        currentHp: hp, 
+                        atk: atk, 
+                        level: saved.stage, 
+                        isBoss: currentStageConfig?.boss, 
+                        visual: currentStageConfig?.enemyName 
+                     });
+                     addLog("欢迎回到江湖。", "system");
+                 }
+             };
+
              const handleLogin = async () => {
                 if (inputCode === 'admin') {
                     setShowPasswordModal(true);
@@ -1444,7 +1484,7 @@
                 let isValid = false;
 
                 // 1. Local Check (Legacy)
-                if (INVITE_CODES.includes(inputCode)) {
+                if (LOCAL_INVITE_CODES.includes(inputCode)) {
                     isValid = true;
                 }
 
@@ -1476,32 +1516,6 @@
                 } else {
                     setLoginError("无效的邀请码");
                 }
-             };
-
-             // Helper to hydrate state from save object
-             const handleLoadGame = (saved) => {
-                 if (saved && saved.player) {
-                     setPlayer(saved.player);
-                     setStage(saved.stage);
-                     setMaxUnlockedStage(saved.maxUnlockedStage);
-                     setUnlockedPartners(saved.unlockedPartners || []);
-                     if(saved.shopState) setShopState(saved.shopState);
-                     
-                     // Prepare enemy for current stage (but don't start battle yet)
-                     const currentStageConfig = STORY_CONFIGS[saved.player.id][saved.stage];
-                     const hp = Math.floor(100 * (currentStageConfig?.hpScale || 1));
-                     const atk = Math.floor(8 * (currentStageConfig?.atkScale || 1));
-                     setEnemy({ 
-                        name: currentStageConfig?.enemyName || "敌人", 
-                        maxHp: hp, 
-                        currentHp: hp, 
-                        atk: atk, 
-                        level: saved.stage, 
-                        isBoss: currentStageConfig?.boss, 
-                        visual: currentStageConfig?.enemyName 
-                     });
-                     addLog("欢迎回到江湖。", "system");
-                 }
              };
 
              // Handle Enter from Foreword (Start Battle)
