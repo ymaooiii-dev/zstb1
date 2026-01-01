@@ -67,7 +67,7 @@
         
         import { initializeApp } from 'firebase/app';
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from 'firebase/firestore';
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 
         // --- Firebase 配置 ---
         const manualConfig = {
@@ -82,13 +82,17 @@
         let db = null;
         let auth = null;
         let appId = 'default-app-id';
+        let useManualConfig = false;
 
         try {
             let firebaseConfig = null;
-            if (manualConfig.apiKey && manualConfig.apiKey.length > 0) {
+            // 优先使用手动配置 (zsjh-4cd72)
+            if (manualConfig.apiKey && manualConfig.apiKey.length > 0 && !manualConfig.apiKey.includes("YOUR_API_KEY")) {
                 firebaseConfig = manualConfig;
-                console.log("Using manual Firebase config");
+                useManualConfig = true;
+                console.log("Using manual Firebase config (White List Mode)");
             } else if (typeof __firebase_config !== 'undefined') {
+                // 回退到环境配置
                 firebaseConfig = JSON.parse(__firebase_config);
                 appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
                 console.log("Using environment Firebase config");
@@ -109,7 +113,8 @@
         const REST_DURATION = 60; 
         const PARTNER_UNLOCK_LEVEL = 3; 
         const PARTNER_COOLDOWN_BASE = 150; 
-        const INVITE_CODES = ["517", "520", "1314", "qiqi", "guoguo", "admin"]; 
+        // 本地保留一些测试码，以防云端断连或管理员使用
+        const LOCAL_INVITE_CODES = ["admin", "test", "520", "1314", "qiqi", "guoguo"]; 
         const SHOP_REFRESH_INTERVAL = 2 * 60 * 60 * 1000; 
         const SHOP_REFRESH_COST = 250; 
 
@@ -534,10 +539,12 @@
 
         // --- Foreword Page 组件 ---
         const ForewordPage = ({ customData, onEnter, player }) => {
-            // Safe access
+            // 安全获取配置，默认为空对象防止报错
             const allConfig = customData.foreword || DEFAULT_FOREWORD;
-            const config = allConfig[player.id] || DEFAULT_FOREWORD[player.id] || DEFAULT_FOREWORD['xie_huaian'];
-            const btnText = config.buttonText || (player.id === 'xie_huaian' ? "入长安" : "入江湖");
+            // 修复潜在的 undefiend
+            const safePlayerId = player ? player.id : 'xie_huaian';
+            const config = allConfig[safePlayerId] || DEFAULT_FOREWORD[safePlayerId] || DEFAULT_FOREWORD['xie_huaian'];
+            const btnText = config.buttonText || (safePlayerId === 'xie_huaian' ? "入长安" : "入江湖");
             
             return (
                 <div className="w-full h-screen bg-[#1c1917] flex items-center justify-center p-6 animate-pop-in relative overflow-hidden">
@@ -1150,7 +1157,7 @@
 
         const PaperDuel = () => {
              const loadCustomData = () => {
-                const saved = localStorage.getItem('paper_duel_custom_data_v12');
+                const saved = localStorage.getItem('paper_duel_custom_data_v13');
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
@@ -1257,12 +1264,18 @@
                 if(!auth) return;
                 const init = async () => {
                     try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        if (useManualConfig) {
+                             await signInAnonymously(auth);
+                        } else if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
                         } else {
                             await signInAnonymously(auth);
                         }
-                    } catch (e) { console.error("Login failed", e); }
+                    } catch (e) { 
+                        console.error("Login failed", e); 
+                        // Fallback to anonymous if custom token fails
+                        if (!auth.currentUser) await signInAnonymously(auth).catch(console.error);
+                    }
                 };
                 init();
                 return onAuthStateChanged(auth, setUser);
@@ -1297,7 +1310,7 @@
                         };
 
                         setCustomData(safeData);
-                        localStorage.setItem('paper_duel_custom_data_v12', JSON.stringify(safeData));
+                        localStorage.setItem('paper_duel_custom_data_v13', JSON.stringify(safeData));
                         addLog("已自动同步云端最新配置", "success");
                     }
                 }, (err) => {
@@ -1340,7 +1353,7 @@
 
              useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
              useEffect(() => { chatsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats]);
-             useEffect(() => { localStorage.setItem('paper_duel_custom_data_v12', JSON.stringify(customData)); }, [customData]);
+             useEffect(() => { localStorage.setItem('paper_duel_custom_data_v13', JSON.stringify(customData)); }, [customData]);
              
              useEffect(() => {
                  if (activeMeme) {
@@ -1364,7 +1377,7 @@
 
              // Auto next stage
              useEffect(() => {
-                if (gameState === 'VICTORY' && !showShop && !showPartnerSelect && !showStats && !showMap && isAutoBattle) {
+                if (gameState === 'VICTORY' && !showShop && !showPartnerSelect && !showStats && !showMap && !stateRef.current.processingVictory && isAutoBattle) {
                   const timer = setTimeout(() => {
                       if (stateRef.current.gameState === 'VICTORY') {
                           nextStage();
@@ -1417,22 +1430,47 @@
                  }
              };
 
-             const handleLogin = () => {
-                if (INVITE_CODES.includes(inputCode)) {
-                  if (inputCode === 'admin') {
-                      setShowPasswordModal(true);
-                  } else {
-                      // Login successful, check for save
-                      const saved = loadSavedProgress();
-                      if (saved && saved.player) {
-                          handleLoadGame(saved); // Load data
-                          setGameState('MENU'); // Directly to MENU if save exists
-                      } else {
-                          setGameState('GACHA'); // No save, go to Gacha
-                      }
-                  }
+             const handleLogin = async () => {
+                if (inputCode === 'admin') {
+                    setShowPasswordModal(true);
+                    return;
+                }
+
+                setLoginError("正在验证...");
+                let isValid = false;
+
+                // 1. Local Check (Legacy)
+                if (LOCAL_INVITE_CODES.includes(inputCode)) {
+                    isValid = true;
+                }
+
+                // 2. Cloud Check (Whitelist)
+                if (!isValid && db && user) {
+                    try {
+                        const validRef = doc(db, 'game_data', 'valid_tokens');
+                        const docSnap = await getDoc(validRef);
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            const list = data.list || [];
+                            if (list.includes(inputCode)) {
+                                isValid = true;
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Cloud validation error:", e);
+                    }
+                }
+
+                if (isValid) {
+                     const saved = loadSavedProgress();
+                     if (saved && saved.player) {
+                         handleLoadGame(saved);
+                         setGameState('MENU'); // Directly to MENU if save exists
+                     } else {
+                         setGameState('GACHA'); // No save, go to Gacha
+                     }
                 } else {
-                  setLoginError("邀请码错误，请联系淇淇获取");
+                    setLoginError("无效的邀请码");
                 }
              };
 
@@ -1946,6 +1984,12 @@
                          </div>
                          {/* Bottom Logs */}
                          <div className="h-32 bg-[#e6ded5] border-t-2 border-[#d6d3cd] p-3 font-serif text-sm relative shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] flex justify-between"><div className="flex-1 overflow-y-auto custom-scrollbar">{logs.map(log => (<div key={log.id} className={`mb-1 ${log.type==='damage'?'text-[#991b1b]':log.type==='loot'?'text-[#7e22ce] font-bold':log.type==='error'?'text-red-700 font-bold':log.type==='success'?'text-[#15803d] font-bold':'text-[#57534e]'}`}>{log.text}</div>))}<div ref={logsEndRef} /></div><div className="ml-4 flex gap-3 items-center"><button onClick={() => updatePlayer(prev => { const newVal = !stateRef.current.isAutoBattle; setIsAutoBattle(newVal); return prev; })} className={`w-12 h-12 rounded-full border-2 shadow-md flex items-center justify-center transition-all ${isAutoBattle ? 'bg-[#15803d] border-[#166534] text-white' : 'bg-[#a8a29e] border-[#57534e] text-white'}`} title={isAutoBattle ? "切换为手动" : "切换为自动"}>{isAutoBattle ? <Zap size={20} /> : <MousePointer size={20} />}</button><span className="text-[10px] text-[#57534e] mt-1 font-bold">{isAutoBattle ? "自动中" : "手动"}</span>{!isAutoBattle && gameState === 'BATTLE' && (<button onClick={manualAttack} className="w-14 h-14 rounded-full bg-[#b91c1c] border-4 border-[#7f1d1d] shadow-lg flex flex-col items-center justify-center text-white hover:scale-110 active:scale-95 transition-all animate-pulse"><Sword size={24} /><span className="text-[10px] font-bold">出招</span></button>)}<button onClick={() => setShowMap(true)} className="w-12 h-12 rounded-full bg-[#57534e] border-2 border-[#a89f91] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Map size={18} /><span className="text-[9px] font-bold">舆图</span></button><button onClick={() => openShop()} className="w-12 h-12 rounded-full bg-[#3e2323] border-2 border-[#8b2e2e] shadow-lg flex flex-col items-center justify-center text-[#e6dcca] hover:scale-110 active:scale-95 transition-all"><Store size={18} /><span className="text-[9px] font-bold">鬼市</span></button><button onClick={openPartnerSelect} disabled={partnerCooldownTimer > 0 || !player.partnerUnlocked || gameState !== 'BATTLE'} className={`w-12 h-12 rounded-full border-2 shadow-lg flex flex-col items-center justify-center relative overflow-hidden transition-all ${!player.partnerUnlocked ? 'bg-gray-400 border-gray-500 opacity-50 cursor-not-allowed' : partnerCooldownTimer > 0 ? 'bg-gray-300 border-gray-400 cursor-wait' : 'bg-[#d4af37] border-[#b45309] hover:scale-110 active:scale-95 cursor-pointer'}`}>{partnerCooldownTimer > 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-[10px] font-bold z-10">{Math.ceil(partnerCooldownTimer)}</div>}<Users size={18} className={player.partnerUnlocked ? "text-[#3e2323]" : "text-gray-600"} /><span className="text-[9px] text-[#57534e] mt-0.5 font-bold">{!player.partnerUnlocked ? "未识" : "助战"}</span></button></div></div>
+                    </div>
+
+                    {/* Right Side */}
+                    <div className="w-full md:w-72 bg-[#fdfbf7] border-l-4 border-[#d6d3cd] flex flex-col shadow-xl z-20 relative hidden md:flex">
+                        <div className="p-4 bg-[#f4f0e6] border-b border-[#e5e7eb] font-bold text-[#8b2e2e] flex items-center justify-center gap-2 font-serif text-lg tracking-widest relative"><div className="absolute left-4 opacity-50"><MessageCircle size={18} /></div>{player.id === 'xie_huaian' ? '长安密语' : '江湖传闻'}</div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#fdfbf7]" style={{backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)', backgroundSize: '20px 20px'}}>{chats.map(chat => { const isPlayer = chat.speaker === 'Player'; return (<div key={chat.id} className={`flex flex-col ${isPlayer ? 'items-end' : 'items-start'} animate-pop-in group`}><span className="text-[10px] text-[#a89f91] mb-1 px-1">{isPlayer ? player.name : enemy.name}</span><div className={`relative max-w-[90%] px-4 py-3 text-sm shadow-sm border ${isPlayer ? 'bg-white border-[#d6d3cd] text-[#4a3b32] rounded-l-xl rounded-br-sm rounded-tr-xl' : 'bg-[#2a231d] border-[#4a3b32] text-[#e6dcca] rounded-r-xl rounded-bl-sm rounded-tl-xl'}`}>{chat.text}</div></div>); })}<div ref={chatsEndRef} /></div>
                     </div>
 
                     {/* Modals */}
